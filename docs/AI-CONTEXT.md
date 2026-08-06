@@ -117,7 +117,8 @@ interface DigestPayload {
 依存関係・CI環境は全て`npm view`/GitHub API等で実際に最新版を再検索した上でexact pin(範囲指定`^`/`~`を使わない)している。学習データにある古いバージョン想定でコードを書かないこと。
 
 - **npm依存**: 各`apps/*/package.json`の`dependencies`/`devDependencies`は全てexactバージョン。ルートの`.npmrc`に`save-exact=true`を設定し、今後`pnpm add`する際も自動でexact pinになるようにしてある
-- **パッケージマネージャー**: ルート`package.json`の`packageManager`フィールドで`pnpm@11.18.0`をintegrity hash付きで固定(Corepack方式)。`pnpm/action-setup`はこのフィールドを自動で読むため、ワークフロー側に`version`指定は不要
+- **パッケージマネージャー**: ルート`package.json`の`packageManager`フィールドで`pnpm@11.18.0`を固定。`pnpm/action-setup`はこのフィールドを自動で読むため、ワークフロー側に`version`指定は不要
+  - **2026-08-06変更**: 当初はCorepack方式のintegrity hash付き(`pnpm@11.18.0+sha512-...`)で固定していたが、Cloudflare Workers Buildsの実機検証で「Invalid package manager specification...expected a semver version」エラーが発生することを確認した。Workers Buildsのツール検出処理は`packageManager`フィールドをhashサフィックスなしの単純なsemverとして解析するため、`PNPM_VERSION`ビルド環境変数を設定しても回避できない(検出結果が`pnpm@10.11.1`のまま変わらないことを実際のビルドログで確認済み)。そのためhashサフィックスを外し`pnpm@11.18.0`のみに変更した。GitHub Actions側(`pnpm/action-setup`)はhashなしの形式でも問題なく動作する。
 - **ビルドスクリプト承認**: pnpm 11は依存パッケージのpostinstallスクリプトを既定でブロックする。許可リストは`package.json`ではなく**`pnpm-workspace.yaml`の`allowBuilds`**に書く(pnpm 10→11で設定の置き場所が変わった。`package.json`の`pnpm`フィールドは11ではもう読まれない)。`esbuild`(tsx用)・`workerd`(wrangler用)を許可済み
 - **GitHub Actions**: `.github/workflows/backend-daily-digest.yml`内の各ActionはコミットSHAで固定(タグは可変なため)。バージョンはインラインコメントに明記。`runs-on`も`ubuntu-latest`ではなく`ubuntu-24.04`と明示固定(2026-08-02時点で`ubuntu-latest`が指す安定版。`ubuntu-26.04`はまだpublic preview)
 - **Node.js**: ワークフローの`node-version`は`"lts/*"`のような可変指定ではなく`"24.18.1"`(2026-08-02時点のNode 24 LTS最新パッチ)を明示

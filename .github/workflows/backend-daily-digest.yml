@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   generate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       # 各Actionはサプライチェーン対策のためコミットSHAで固定している(バージョンはコメントに明記)。

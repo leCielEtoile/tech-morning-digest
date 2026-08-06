@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tech-morning-digest",
+  // ビルド日ごとに更新する(spec.md参照)
+  "compatibility_date": "2026-08-02",
+  "assets": {
+    "directory": "./dist"
+  }
+}

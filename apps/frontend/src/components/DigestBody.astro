@@ -1,0 +1,62 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { formatJstDateLabel } from "../lib/format-date.js";
+
+interface Props {
+  entry: CollectionEntry<"digests">;
+}
+
+const { entry } = Astro.props;
+const { data } = entry;
+const dateLabel = formatJstDateLabel(data.date);
+---
+
+<article>
+	<h1 class="digest-date" aria-label={`${dateLabel}のテックダイジェスト`}><time datetime={data.date}>{dateLabel}</time></h1>
+	{
+		data.hasNewArticles ? (
+			<div class="digest-content">
+				<h2 class="eyebrow">今日の3行</h2>
+				<ol class="three-lines">
+					{data.threeLines.map((line) => (
+						<li>{line}</li>
+					))}
+				</ol>
+
+				{data.picks.length > 0 && (
+					<Fragment>
+						<h2 class="picks-heading">Today's Pick</h2>
+						<ol class="picks-list">
+							{data.picks.map((pick) => (
+								<li>
+									<a href={pick.link}>{pick.title}</a>
+									<p class="pick-reason">{pick.reason}</p>
+									<span class="pick-feed">{pick.feedName}</span>
+								</li>
+							))}
+						</ol>
+					</Fragment>
+				)}
+
+				{data.categories.map((category) => (
+					<Fragment>
+						<h2 class="eyebrow">{category.category}</h2>
+						<ul class="category-list">
+							{category.articles.map((article) => (
+								<li>
+									<div class="article-heading">
+										<a href={article.link}>{article.title}</a>
+										<span class="article-feed">{article.feedName}</span>
+									</div>
+									<p class="article-gist">{article.gist}</p>
+								</li>
+							))}
+						</ul>
+					</Fragment>
+				))}
+			</div>
+		) : (
+			<p class="no-articles">本日は配信なし。対象フィードに新着がありませんでした。また明朝。</p>
+		)
+	}
+</article>

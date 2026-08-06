@@ -1,0 +1,27 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatJstDateLabel } from "../../lib/format-date.js";
+
+const digests = await getCollection("digests");
+const sorted = [...digests].sort((a, b) => b.id.localeCompare(a.id));
+---
+
+<BaseLayout title="アーカイブ - Tech Morning Digest">
+	<h1 class="page-title">アーカイブ</h1>
+	<p class="page-subtitle">直近{sorted.length}日分を表示</p>
+	{
+		sorted.length === 0 ? (
+			<p class="empty-state">まだ配信がありません。</p>
+		) : (
+			<ul class="archive-list">
+				{sorted.map((entry) => (
+					<li>
+						<a href={`/archive/${entry.id}/`}>{formatJstDateLabel(entry.data.date)}</a>
+						{!entry.data.hasNewArticles && <span class="no-articles">配信なし</span>}
+					</li>
+				))}
+			</ul>
+		)
+	}
+</BaseLayout>

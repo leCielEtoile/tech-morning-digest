@@ -1,0 +1,17 @@
+{
+  "name": "rss-summary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tech Morning Digest monorepo — RSSフィードをAI要約したサマリページを配信するシステム",
+  "packageManager": "pnpm@11.18.0+sha512-M9g8d9qC9J+6g2klxvG4QRgewxMrZwY5vQEvcHX1x89jTF+HAUfBmq50ePrAHfCdiJLogEVIlu3SPumzN1dWPA==",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "backend:start": "pnpm --filter @rss-summary/backend start",
+    "backend:test": "pnpm --filter @rss-summary/backend test",
+    "backend:typecheck": "pnpm --filter @rss-summary/backend typecheck",
+    "frontend:dev": "pnpm --filter @rss-summary/frontend dev",
+    "frontend:build": "pnpm --filter @rss-summary/frontend build"
+  }
+}

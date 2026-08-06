@@ -1,0 +1,25 @@
+{
+  "name": "@rss-summary/backend",
+  "version": "0.1.0",
+  "description": "Tech Morning Digest - GitHub Actions生成処理(RSS取得・Gemini要約・R2書き込み)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rss-summary/shared": "workspace:*",
+    "aws4fetch": "1.0.20",
+    "rss-parser": "3.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "tsx": "4.23.1",
+    "typescript": "7.0.2"
+  }
+}

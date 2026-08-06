@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>Publickey</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/" />
+    <link rel="self" type="application/atom+xml" href="https://www.publickey1.jp/atom.xml" />
+    <id>tag:www.publickey1.jp,2011-12-29://2</id>
+    <updated>2026-07-30T14:12:35Z</updated>
+    
+    <generator uri="http://www.sixapart.com/movabletype/">Movable Type Pro</generator>
+
+<entry>
+    <title>JetBrains、AIが少ないトークンでコンテキストを取得しやすく、よりよいコード生成を可能にする「JetBrains Context」発表</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/jetbrainsaijetbrains_context.html" />
+    <id>tag:www.publickey1.jp,2026://2.8650</id>
+
+    <published>2026-07-30T17:48:59Z</published>
+    <updated>2026-07-30T14:12:35Z</updated>
+
+    <summary>JetBrainsは、コードリポジトリの上にインテリジェンスなレイヤを構築し、AIエージェントに対して適切なコードのコンテキストを提供することで、AIエージェントによるよりよいコード生成を可能にする新サービス「JetBrains Conte...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="開発ツール" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    <category term="jetbrains" label="JetBrains" scheme="http://www.sixapart.com/ns/types#tag" />
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+JetBrainsは、コードリポジトリの上にインテリジェンスなレイヤを構築し、AIエージェントに対して適切なコードのコンテキストを提供することで、AIエージェントによるよりよいコード生成を可能にする新サービス「JetBrains Context」を発表しました。 Coding agents shouldn&#39;t have to rediscover your codebase for every task.JetBrains Context gives them cod……
+
+    </content>
+</entry>
+
+<entry>
+    <title>KubernetesはAIを動かすプラットフォームに。横浜でKubeCon＋CloudNativeCon Japan 2026が開幕</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/kubernetesaikubeconcloudnativecon_japan_2026.html" />
+    <id>tag:www.publickey1.jp,2026://2.8649</id>
+
+    <published>2026-07-29T15:02:00Z</published>
+    <updated>2026-07-29T14:15:07Z</updated>
+
+    <summary>クラウドネイティブ関連技術におけるIT業界最大のイベント「KubeCon+CloudNativeCon Japan 2026」が昨日（2026年7月29日）、パシフィコ横浜で開幕しました。日本でKubeCon＋CloudNativeConが...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="Kubernetes" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="クラウド" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="クラウドネイティブ" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+クラウドネイティブ関連技術におけるIT業界最大のイベント「KubeCon+CloudNativeCon Japan 2026」が昨日（2026年7月29日）、パシフィコ横浜で開幕しました。日本でKubeCon＋CloudNativeConが開催されるのは、昨年に続いて2度目です。 日本のクラウドネイティブ関連の開発者は95万人 基調講演に登壇したのは、本イベントの主催者であるCloud Native Computing Foundation（以下、CNCF）CTO Chris……
+
+    </content>
+</entry>
+
+<entry>
+    <title>Google Cloud、AIが自律的にコードの脆弱性検出からサンドボックス内でのリスク検証、修正までを自動実行。「CodeMender」プレビュー公開</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/google_cloudaicodemender.html" />
+    <id>tag:www.publickey1.jp,2026://2.8648</id>
+
+    <published>2026-07-28T15:54:06Z</published>
+    <updated>2026-07-28T14:58:27Z</updated>
+
+    <summary>Google Cloudは、コードの脆弱性の検出、リスクの検証と報告、修正までを自律的に実行するAIエージェント「CodeMender」のプレビュー公開を発表しました。 複雑な脆弱性まで発見し、サンドボックス内でリスク検証 CodeMend...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="Google Cloud" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="クラウド" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="セキュリティ" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+Google Cloudは、コードの脆弱性の検出、リスクの検証と報告、修正までを自律的に実行するAIエージェント「CodeMender」のプレビュー公開を発表しました。 複雑な脆弱性まで発見し、サンドボックス内でリスク検証 CodeMenderは、静的解析やモデルのみのスキャンでは見落としてしまう複雑な脆弱性の発見を可能としており、メモリ破損、インジェクション、Webセキュリティの問題、暗号の欠陥、安全でないデータ処理などの検出が困難な脆弱性も探索できるとしています。 対象と……
+
+    </content>
+</entry>
+
+<entry>
+    <title>SaaSにおけるUI開発のよくある課題とその解決方法、教えます［PR］</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/saasuipr.html" />
+    <id>tag:www.publickey1.jp,2026://2.8644</id>
+
+    <published>2026-07-27T15:43:49Z</published>
+    <updated>2026-07-27T14:27:18Z</updated>
+
+    <summary> .jetform-wrapper {     border: 2px solid #ccc;   /* 枠線 /     padding: 20px;            / 内側の余白 /     border-radius: 12p...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="JavaScript" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="クラウド" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="プログラミング言語" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="開発ツール" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    <category term="pr" label="PR" scheme="http://www.sixapart.com/ns/types#tag" />
+    <category term="saas" label="SaaS" scheme="http://www.sixapart.com/ns/types#tag" />
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+ .jetform-wrapper {     border: 2px solid #ccc;   /* 枠線 /     padding: 20px;            / 内側の余白 /     border-radius: 12px;       / 角丸（不要なら削除） /     background: #fafafa;      / 背景色（任意） /     margin: 20px 0;           / 上下の余白 */ } .notes {fon……
+
+    </content>
+</entry>
+
+<entry>
+    <title>Vercel、TypeScriptをC言語に変換してからネイティブな実行ファイルにコンパイルする「scriptc」、オープンソースで公開</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/verceltypescriptcscriptc.html" />
+    <id>tag:www.publickey1.jp,2026://2.8647</id>
+
+    <published>2026-07-27T15:20:00Z</published>
+    <updated>2026-07-27T14:26:22Z</updated>
+
+    <summary>Webアプリケーションのホスティングサービス「Vercel」で知られるVercel社は、Node.jsで実行可能なTypeScriptコードを、変更することなく同じ機能を備えたネイティブな実行ファイルにコンパイルするコンパイラ「script...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="JavaScript" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="Web技術" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="プログラミング言語" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="開発ツール" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    <category term="c" label="C" scheme="http://www.sixapart.com/ns/types#tag" />
+    <category term="typescript" label="TypeScript" scheme="http://www.sixapart.com/ns/types#tag" />
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+Webアプリケーションのホスティングサービス「Vercel」で知られるVercel社は、Node.jsで実行可能なTypeScriptコードを、変更することなく同じ機能を備えたネイティブな実行ファイルにコンパイルするコンパイラ「scriptc」をオープンソースで公開しました。 TypeScriptをC言語へ変換しCコンパイラでコンパイル Node.jsで実行可能なTypeScriptコードを単体で実行可能なバイナリファイルに変換する機能は、すでにNode.jsやDeno、Bu……
+
+    </content>
+</entry>
+
+<entry>
+    <title>AWSの公式オンラインワークショップ、無料のAWSサンドボックス環境を提供開始。学習用にAWSのサービスやコード実行など利用可能に</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/awsawsaws.html" />
+    <id>tag:www.publickey1.jp,2026://2.8646</id>
+
+    <published>2026-07-27T15:15:59Z</published>
+    <updated>2026-07-27T14:19:45Z</updated>
+
+    <summary>Amazon Web Services（AWS）は、同社がAWSのオンライン学習教材として提供している「ワークショップ」において、無料でAWSのサービスやコードの実行などを試すことができるサンドボックス環境の提供開始を発表しました。 AWS...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="AWS" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="クラウド" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+Amazon Web Services（AWS）は、同社がAWSのオンライン学習教材として提供している「ワークショップ」において、無料でAWSのサービスやコードの実行などを試すことができるサンドボックス環境の提供開始を発表しました。 AWSアカウントもクレジットカードの登録も不要で、無料のビルダーIDを登録することで利用可能。 これにより、無料で実際のAWS環境を使ってワークショップの学習を進めることができるようになりました。 AWSアカウント不要、最大で8時間利用可能 無料……
+
+    </content>
+</entry>
+
+<entry>
+    <title>MCP仕様が明日アップデート、7月28日版MCPからはステートレスな接続が正式仕様に。GitHub MCPサーバが早くも対応発表</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/mcp728mcpgithub_mcp.html" />
+    <id>tag:www.publickey1.jp,2026://2.8643</id>
+
+    <published>2026-07-26T15:06:36Z</published>
+    <updated>2026-07-26T15:11:48Z</updated>
+
+    <summary>AIツールとサービスを接続するための事実上の業界標準となっている通信プロトコルMCP（Model Context Protocol）の7月28日版仕様の登場が目前となっています。 MCPの仕様は継続的にアップデートされ続けており、GitHu...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="ネットワーク" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+AIツールとサービスを接続するための事実上の業界標準となっている通信プロトコルMCP（Model Context Protocol）の7月28日版仕様の登場が目前となっています。 MCPの仕様は継続的にアップデートされ続けており、GitHubでは過去の仕様から現在検討中の仕様まで各リリースが公開されています。 現時点での最新版は2025年11月版となる「MCP 2025-11-25」ですが、すでにリリース候補版「MCP 2026-07-28 RC」が公開されており、明日（実際……
+
+    </content>
+</entry>
+
+<entry>
+    <title>ゲームエンジン「Unity 7」発表、ランタイム基盤がMonoから.NET CoreCLRへ移行。高速化により、開発画面からほぼ瞬時にプレイモードが起動</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/unity_7mononet_coreclr.html" />
+    <id>tag:www.publickey1.jp,2026://2.8642</id>
+
+    <published>2026-07-26T15:02:22Z</published>
+    <updated>2026-07-27T02:27:19Z</updated>
+
+    <summary>Unity社は代表的なゲームエンジンの1つである「Unity」の次世代版となる「Unity 7」を発表しました。 Introducing Unity 7 - built for a faster-moving, more open indu...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term=".NET" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="プログラミング言語" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="開発ツール" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+Unity社は代表的なゲームエンジンの1つである「Unity」の次世代版となる「Unity 7」を発表しました。 Introducing Unity 7 - built for a faster-moving, more open industry where creators, cross-functional teams, and coding agents can seamlessly collaborate across every stage of the deve……
+
+    </content>
+</entry>
+
+<entry>
+    <title>.NET MAUI、iOS/AndoridのランタイムがMonoからCoreCLRに更新、開発者は動作確認を。.NET 11 Preview 6が公開</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/net_mauiiosandoridmonocoreclrnet_11_preview_6.html" />
+    <id>tag:www.publickey1.jp,2026://2.8641</id>
+
+    <published>2026-07-23T18:22:56Z</published>
+    <updated>2026-07-23T14:32:28Z</updated>
+
+    <summary>マイクロソフトは今秋リリース予定の包括的フレームワーク「Microsoft .NET」のプレビュー版となる「Microsoft .NET 11 Preview 6」（以下、.NET Preview 6）を公開しました。 .NET 11 Pr...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term=".NET" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="プログラミング言語" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    <category term="microsoft" label="Microsoft" scheme="http://www.sixapart.com/ns/types#tag" />
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+マイクロソフトは今秋リリース予定の包括的フレームワーク「Microsoft .NET」のプレビュー版となる「Microsoft .NET 11 Preview 6」（以下、.NET Preview 6）を公開しました。 .NET 11 Preview 6の大きな変更点の1つが、UIフレームワーク「.NET MAUI」の基盤がMonoから完全にCoreCLRに移行することです。 .NET MAUIは1つのC#とXAMLのコードからWindowsやMac、iOS、Androidの……
+
+    </content>
+</entry>
+
+<entry>
+    <title>アトラシアン、JiraがAIによる要件定義の自動作成、コンテキストを保持しつつタスクをClaudeやCopilotなどのAIエージェントへアサインなど新機能</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/jiraaiclaudecopilotai.html" />
+    <id>tag:www.publickey1.jp,2026://2.8640</id>
+
+    <published>2026-07-22T15:35:19Z</published>
+    <updated>2026-07-22T13:39:04Z</updated>
+
+    <summary>アトラシアンは、プロジェクト管理ツールとして知られるJiraに生成AI機能を組み込み、AIによる要件定義の自動作成、作業すべきタスクの洗い出し、そして各タスクをClaude CodeやGitHub Copilotなどへ割り当てる新機能を発表...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="開発ツール" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    <category term="atlassian" label="Atlassian" scheme="http://www.sixapart.com/ns/types#tag" />
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+アトラシアンは、プロジェクト管理ツールとして知られるJiraに生成AI機能を組み込み、AIによる要件定義の自動作成、作業すべきタスクの洗い出し、そして各タスクをClaude CodeやGitHub Copilotなどへ割り当てる新機能を発表しました。 Jiraが要件定義を自動作成 新たに搭載されたJira Plannerは、どのようなソフトウェアを開発したいかが入力されると、まず既存のコードベースやJiraの履歴、ナレッジ共有ツールであるConfluenceの情報などからコン……
+
+    </content>
+</entry>
+
+<entry>
+    <title>企業向けでAIツールで成長率トップはAnthropic、アカウント数が最も多いのはMicrosoft 365。Oktaが調査結果を発表</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/aianthropicmicrosoft_365okta.html" />
+    <id>tag:www.publickey1.jp,2026://2.8639</id>
+
+    <published>2026-07-21T13:51:42Z</published>
+    <updated>2026-07-21T13:56:15Z</updated>
+
+    <summary>アイデンティティ管理サービスを提供するOktaは、同社のサービスを用いている2万社以上の匿名化されたアクセスデータに基づく、企業でのAIツール利用実態について調査結果を発表しました。 成長率トップはAnthropic 1つ目の調査結果は、2...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+アイデンティティ管理サービスを提供するOktaは、同社のサービスを用いている2万社以上の匿名化されたアクセスデータに基づく、企業でのAIツール利用実態について調査結果を発表しました。 成長率トップはAnthropic 1つ目の調査結果は、2022年6月から2026年6月までの4年間における企業アカウント純増数に基づいて、AIツールの成長率の高いものをランキング形式で示しています。 最大を100とした場合の、最も急成長しているAIアプリランキング。（Publickeyによってツ……
+
+    </content>
+</entry>
+
+<entry>
+    <title>AWS、デプロイ速度が最大4倍になる「AWS CloudFormation Expressモード」を提供開始</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/aws4aws_cloudformation_express.html" />
+    <id>tag:www.publickey1.jp,2026://2.8638</id>
+
+    <published>2026-07-21T13:50:39Z</published>
+    <updated>2026-07-21T13:51:39Z</updated>
+
+    <summary>Amazon Web Services（AWS）は、デプロイ速度が最大で4倍速になるAWS CloudFormationの新機能「AWS CloudFormation Expressモード」の提供を開始しました。 AWS CloudForm...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="AWS" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="DevOps" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="クラウド" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="運用・監視" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+Amazon Web Services（AWS）は、デプロイ速度が最大で4倍速になるAWS CloudFormationの新機能「AWS CloudFormation Expressモード」の提供を開始しました。 AWS CloudFormationはAWS上でサーバやネットワークなどのリソースを、コードを用いて管理し自動化できるデプロイツールです。 リソースが安定するまで待機しないことで高速化 通常のCloudFormationでは、AWSのリソース設定を適用すると、そのリ……
+
+    </content>
+</entry>
+
+<entry>
+    <title>Claude Codeを組織一括でシングルサインオン、チームや個人の費用上限設定、デフォルト設定など可能に、「Claude apps gateway for AWS/Google Cloud」登場</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/claude_codeclaude_apps_gateway_for_awsgoogle_cloud.html" />
+    <id>tag:www.publickey1.jp,2026://2.8637</id>
+
+    <published>2026-07-20T15:54:57Z</published>
+    <updated>2026-07-20T13:56:16Z</updated>
+
+    <summary>AnthropicのAIコーディングエージェントClaud Codeは非常に人気のあるサービスとして多くの組織で採用され始めています。 Claude Codeは個人で簡単に導入できますが、企業が組織としてClaude Codeを導入する場合...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="AWS" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="Google Cloud" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="クラウド" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="運用・監視" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+AnthropicのAIコーディングエージェントClaud Codeは非常に人気のあるサービスとして多くの組織で採用され始めています。 Claude Codeは個人で簡単に導入できますが、企業が組織としてClaude Codeを導入する場合には、企業内アカウントとの紐付けとシングルサインオンやデフォルト設定、利用状況の把握、従量課金における費用上限の設定などを組織内で一括して管理できることが望ましいでしょう。 そうしたClaude Codeを組織で導入する際に求められる機能を……
+
+    </content>
+</entry>
+
+<entry>
+    <title>Rustで書き直されたBun、早くもClaude Codeアプリに本番投入された模様</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/rustbunclaude_code.html" />
+    <id>tag:www.publickey1.jp,2026://2.8636</id>
+
+    <published>2026-07-20T15:52:57Z</published>
+    <updated>2026-07-20T13:54:53Z</updated>
+
+    <summary>Claude Codeを用いてわずか11日間でZig言語からRust言語へ移植されたことが話題となっているJavaScriptランタイムのBunですが、そのRust版Bunが早くも7月17日にリリースされたClaude Code v2.1....</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term="JavaScript" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="プログラミング言語" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="機械学習・AI" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    <category term="bun" label="Bun" scheme="http://www.sixapart.com/ns/types#tag" />
+    <category term="rust" label="Rust" scheme="http://www.sixapart.com/ns/types#tag" />
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+Claude Codeを用いてわずか11日間でZig言語からRust言語へ移植されたことが話題となっているJavaScriptランタイムのBunですが、そのRust版Bunが早くも7月17日にリリースされたClaude Code v2.1.181の内部で使われている模様です。 参考：JavaScriptランタイムのBun、Claude Fable 5を11日間稼働させてZigからRustへの移植を実現。Claudeをどう使ったのか？ このことを指摘したのは、Python So……
+
+    </content>
+</entry>
+
+<entry>
+    <title>.NET 8と.NET 9は今年の11月でサポート終了、マイクロソフトが警告</title>
+    <link rel="alternate" type="text/html" href="https://www.publickey1.jp/blog/26/net_8net_911.html" />
+    <id>tag:www.publickey1.jp,2026://2.8634</id>
+
+    <published>2026-07-16T18:30:28Z</published>
+    <updated>2026-07-16T14:31:52Z</updated>
+
+    <summary>マイクロソフトの包括的なソフトウェアフレームワーク「.NET 8」と「.NET 9」のサポートが今年（2026年）11月10日に終了します。 サポート終了後も.NET 8や.NET 9で開発されたアプリケーションはそのまま動作し、使えなくな...</summary>
+    <author>
+        <name>jniino</name>
+        
+    </author>
+    
+        <category term=".NET" scheme="http://www.sixapart.com/ns/types#category" />
+    
+        <category term="プログラミング言語" scheme="http://www.sixapart.com/ns/types#category" />
+    
+    <category term="microsoft" label="Microsoft" scheme="http://www.sixapart.com/ns/types#tag" />
+    
+    <content type="html" xml:lang="ja" xml:base="https://www.publickey1.jp/">
+
+マイクロソフトの包括的なソフトウェアフレームワーク「.NET 8」と「.NET 9」のサポートが今年（2026年）11月10日に終了します。 サポート終了後も.NET 8や.NET 9で開発されたアプリケーションはそのまま動作し、使えなくなることはありませんが、バグや脆弱性が発見されたとしてもマイクロソフトから修正のためのパッチなどは提供されなくなります。 そのため、アプリケーション開発者は速やかに2026年11月以後もサポートが継続される新たなバージョンの.NETへ移行する……
+
+    </content>
+</entry>
+
+</feed>

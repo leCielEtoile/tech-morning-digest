@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns="http://purl.org/rss/1.0/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xml:lang="ja">
+ <channel rdf:about="https://akiba-pc.watch.impress.co.jp/data/rss/1.0/ah/feed.rdf">
+  <title>AKIBA PC Hotline!</title>
+  <link>https://akiba-pc.watch.impress.co.jp</link>
+  <description>アキバのPCパーツとスマホの総合サイト</description>
+  <dc:language>ja</dc:language>
+  <dc:rights>Copyright (c) 2015 Impress Corporation. All rights reserved.</dc:rights>
+  <dc:date>2026-08-02T13:10:45+09:00</dc:date>
+  <items>
+   <rdf:Seq>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129706.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129817.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129784.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129005.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129819.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129689.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129796.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129704.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129791.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129782.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129790.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129696.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129798.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129773.html?ref=rss"/>
+    <rdf:li rdf:resource="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129617.html?ref=rss"/>
+   </rdf:Seq>
+  </items>
+ </channel>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129706.html?ref=rss">
+  <title>第10世代Core i5や8GBメモリ搭載の「ProBook 450 G7」が27,500円、Qualitの中古Cランク品セール</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129706.html</link>
+  <dc:date>2026-08-02T12:00:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　Core i5-10210U(4コア/8スレッド)を搭載したHP製15.6型ノートPC「ProBook 450 G7」の中古品が、横河レンタ・リースが運営する通販サイト「Qualit」で特価販売中。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129817.html?ref=rss">
+  <title>Cooler MasterのmicroATXケース「Elite 350」が発売、ARGBファンを4基搭載</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129817.html</link>
+  <dc:date>2026-08-02T10:05:00+09:00</dc:date>
+  <dc:creator>AKIBA PC Hotline!編集部</dc:creator>
+  <description><![CDATA[　Cooler MasterのmicroATXケース「Elite 350」が発売された。カラーはブラック（E350-KGNN-S00）とホワイト（E350-WGNN-S00）の2色が用意されている。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129784.html?ref=rss">
+  <title>ARGBファン×4基搭載のピラーレスPCケース「ASUS A32 PLUS V2」が発売、パソコン工房/アーク専売モデル</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129784.html</link>
+  <dc:date>2026-08-02T09:05:00+09:00</dc:date>
+  <dc:creator>AKIBA PC Hotline!編集部</dc:creator>
+  <description><![CDATA[　270°のパノラマビューを実現したピラーレスタイプのATX対応PCケース「ASUS A32 PLUS V2」が登場した。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129005.html?ref=rss">
+  <title>机に後付けできるゲーミングPC収納「クランプ式CPU吊り下げホルダー」がサンコーから</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129005.html</link>
+  <dc:date>2026-08-02T08:05:00+09:00</dc:date>
+  <dc:creator>AKIBA PC Hotline!編集部</dc:creator>
+  <description><![CDATA[　机に後付けできるPC収納「クランプ式CPU吊り下げホルダー」がサンコーから登場。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129819.html?ref=rss">
+  <title>Core i5-1135G7/16GBメモリ/512GB SSD搭載「dynabook」が57,981円、パソコン工房で中古品が販売中</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129819.html</link>
+  <dc:date>2026-08-02T07:00:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　Core i5-1135G7(4コア/8スレッド)を搭載した15.6型ノートPC「dynabook B55/HR」の中古品が、パソコン工房の通販サイトで販売中。販売されているのは3か月保証が付いた中古品で、価格は57,981円となっています。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129689.html?ref=rss">
+  <title>Core i5-8500Tを搭載したDELL製ミニPC「Optiplex 7060 Micro」が23,100円、Qualitの中古Cランク品セール</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129689.html</link>
+  <dc:date>2026-08-01T12:00:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　Core i5-8500T(6コア/6スレッド)を搭載したDELL製ミニPC「Optiplex 7060 Micro」の中古品が、横河レンタ・リースが運営する通販サイト「Qualit」で特価販売中。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129796.html?ref=rss">
+  <title>「arrows 5G」が10,800円、「arrows Alpha M08」が64,800円など！秋葉原でarrowsシリーズの中古/未使用品がお買い得</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129796.html</link>
+  <dc:date>2026-08-01T11:05:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　秋葉原の中古スマートフォンショップで、arrowsシリーズがお買い得。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129704.html?ref=rss">
+  <title>「iPhone 8 64GB」が4,980円！保証なしのジャンク品セール</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129704.html</link>
+  <dc:date>2026-08-01T10:05:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　Appleの4.7インチスマートフォン「iPhone 8 64GB」のジャンクセールがじゃんぱら秋葉原5号店で実施中です。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129791.html?ref=rss">
+  <title>二酸化クロム採用の高音質カセットテープ「High Position/Type-Ⅱ」が店頭入荷、数量限定販売</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129791.html</link>
+  <dc:date>2026-08-01T09:30:00+09:00</dc:date>
+  <dc:creator>AKIBA PC Hotline!編集部</dc:creator>
+  <description><![CDATA[　磁気研究所オリジナルの音楽用カセットテープ「High Position/Type-Ⅱ」が、秋葉原の直営店舗「MAG-LAB」で販売中。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129782.html?ref=rss">
+  <title>第9世代iPadが35,000円！中古Aランク品の期間限定セール</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129782.html</link>
+  <dc:date>2026-08-01T09:05:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　2021年に発売されたAppleの10.2インチタブレット「第9世代 iPad Wi-Fiモデル」の中古品が、アメモバマーケット東京秋葉原店でセール中。セール期間は8月2日（日）まで。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129790.html?ref=rss">
+  <title>第6世代iPod touchが5,980円から！Cランク中古品が大量入荷</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129790.html</link>
+  <dc:date>2026-08-01T08:05:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　Appleのポータブルメディアプレイヤー「iPod touch（第6世代/2015年モデル）」の中古品が、イオシス各店に大量入荷しています。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129696.html?ref=rss">
+  <title>Core i5-1035G1や8GBメモリ搭載の14型「VAIO Pro PK」が46,981円、パソコン工房で中古品が販売中</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/usedpc_hotline/2129696.html</link>
+  <dc:date>2026-08-01T07:00:00+09:00</dc:date>
+  <dc:creator>新井 将彩成</dc:creator>
+  <description><![CDATA[　Core i5-1035G1(4コア/8スレッド)を搭載した14型ノートPC「VAIO Pro PK（VJPK13C）」の中古品が、パソコン工房の通販サイトで販売中。販売されているのは3か月保証が付いた中古品で、価格は46,981円となっています。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129798.html?ref=rss">
+  <title>生成AIを使ったゲームボーイカラー用アドベンチャー「Daydream」の設定資料集が発売</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129798.html</link>
+  <dc:date>2026-08-01T00:20:00+09:00</dc:date>
+  <dc:creator>AKIBA PC Hotline!編集部</dc:creator>
+  <description><![CDATA[　生成AIを使用するGBC/GBC互換機用アドベンチャーゲーム「Daydream」の設定資料集が登場、家電のケンちゃんで取り扱いが始まっている。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129773.html?ref=rss">
+  <title>Thrustmasterの楽天公式ストアがオープン、ステアリングコントローラーのポイント還元キャンペーン開催</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129773.html</link>
+  <dc:date>2026-08-01T00:15:00+09:00</dc:date>
+  <dc:creator>AKIBA PC Hotline!編集部</dc:creator>
+  <description><![CDATA[　楽天市場に、ステアリングコントローラーなどで知られるThrustmasterの公式ショップ「Thrustmasterブランドストア」がオープン。]]></description>
+ </item>
+ <item rdf:about="https://akiba-pc.watch.impress.co.jp/docs/news/news/2129617.html?ref=rss">
+  <title>8月5日はパソコン工房の日！今週末から大感謝セールがスタート</title>
+  <link>https://akiba-pc.watch.impress.co.jp/docs/news/news/2129617.html</link>
+  <dc:date>2026-08-01T00:10:00+09:00</dc:date>
+  <dc:creator>AKIBA PC Hotline!編集部</dc:creator>
+  <description><![CDATA[　株式会社ユニットコムは、全国のパソコン工房・グッドウィル店舗およびパソコン工房 WEB通販サイトにて、「パソコン工房の日 超大感謝セール」を開催する。]]></description>
+ </item>
+</rdf:RDF>

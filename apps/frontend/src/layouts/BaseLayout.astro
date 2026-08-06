@@ -1,0 +1,35 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  /** マストヘッド右側に表示する日付(例: "2026年8月5日")。省略時は日付を表示しない */
+  dateline?: string;
+}
+
+const { title, dateline } = Astro.props;
+---
+
+<html lang="ja">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content="毎朝、国内外17のテック系フィードからAIが選び抜いた今日のダイジェスト。" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title}</title>
+	</head>
+	<body>
+		<div class="page">
+			<header class="masthead">
+				<a class="masthead__wordmark" href="/">TECH MORNING DIGEST</a>
+				<div class="masthead__meta">
+					{dateline && <span>TOKYO — {dateline}</span>}
+					<nav aria-label="サイト内ナビゲーション"><a href="/archive/">アーカイブ →</a></nav>
+				</div>
+			</header>
+			<main>
+				<slot />
+			</main>
+		</div>
+	</body>
+</html>

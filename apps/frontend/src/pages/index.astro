@@ -1,0 +1,20 @@
+---
+import { getCollection } from "astro:content";
+import DigestBody from "../components/DigestBody.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { formatJstDateLabel } from "../lib/format-date.js";
+
+const digests = await getCollection("digests");
+const sorted = [...digests].sort((a, b) => b.id.localeCompare(a.id));
+const latest = sorted[0];
+---
+
+<BaseLayout title="Tech Morning Digest" dateline={latest && formatJstDateLabel(latest.data.date)}>
+	{
+		latest ? (
+			<DigestBody entry={latest} />
+		) : (
+			<p class="empty-state">まだ配信がありません。翌朝の生成をお待ちください。</p>
+		)
+	}
+</BaseLayout>

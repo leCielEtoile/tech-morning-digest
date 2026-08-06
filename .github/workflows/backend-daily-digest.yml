@@ -1,0 +1,50 @@
+name: Backend Daily Digest
+
+on:
+  schedule:
+    # UTC 23:30 = JST 08:30(前日)
+    - cron: "30 23 * * *"
+  workflow_dispatch: {}
+
+# 前回実行が長引いた場合の重複実行を防ぐ
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+permissions:
+  # stateブランチへのpushに必要(追加シークレット不要)
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # 各Actionはサプライチェーン対策のためコミットSHAで固定している(バージョンはコメントに明記)。
+      # 2026-08-02時点でGitHub APIから取得した各リポジトリの最新リリースタグを解決したもの。
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.1"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run digest generation
+        run: pnpm --filter @rss-summary/backend start
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}

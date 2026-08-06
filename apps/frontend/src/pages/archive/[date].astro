@@ -1,0 +1,38 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import DigestBody from "../../components/DigestBody.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatJstDateLabel } from "../../lib/format-date.js";
+
+export async function getStaticPaths() {
+  const digests = await getCollection("digests");
+  const sorted = [...digests].sort((a, b) => a.id.localeCompare(b.id));
+
+  return sorted.map((entry, index) => ({
+    params: { date: entry.id },
+    props: {
+      entry,
+      prev: sorted[index - 1] ?? null,
+      next: sorted[index + 1] ?? null,
+    },
+  }));
+}
+
+interface Props {
+  entry: CollectionEntry<"digests">;
+  prev: CollectionEntry<"digests"> | null;
+  next: CollectionEntry<"digests"> | null;
+}
+
+const { entry, prev, next } = Astro.props;
+---
+
+<BaseLayout title={`${formatJstDateLabel(entry.data.date)} - Tech Morning Digest`} dateline={formatJstDateLabel(entry.data.date)}>
+	<a class="back-link" href="/archive/">← アーカイブ一覧</a>
+	<DigestBody entry={entry} />
+	<nav class="edition-nav" aria-label="前後の号">
+		{prev ? <a href={`/archive/${prev.id}/`}>← {formatJstDateLabel(prev.data.date)}</a> : <span />}
+		<span class="edition-nav__spacer" />
+		{next ? <a href={`/archive/${next.id}/`}>{formatJstDateLabel(next.data.date)} →</a> : <span />}
+	</nav>
+</BaseLayout>

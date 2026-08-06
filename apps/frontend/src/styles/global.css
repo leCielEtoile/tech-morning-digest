@@ -1,0 +1,410 @@
+/*
+ * デザインコンセプト: "Morning Wire"
+ * RSSという情報の「電信線(ワイヤー)」から、AIエディターが今朝のダイジェストを配信する—
+ * という本サービスの成り立ちをそのままトーンにした、速報/電信テープをモチーフとするデザイン。
+ * 最優先事項は「読むことを阻害しない」ため、装飾は最小限、アクセントカラーは signal の一色のみ。
+ */
+
+/* 欧文のみのラテン文字サブセットを自己ホスト。和文はシステムフォントに任せ、
+   Webフォント読み込みによる遅延・レイアウトシフトを避ける(読書体験を最優先するための判断)。 */
+@import "@fontsource/space-grotesk/latin-700.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+
+:root {
+  --paper: #f3f4f1;
+  --ink: #14181c;
+  --ink-muted: #5b6470;
+  --rule: #d8dbd5;
+  --signal: #b33f17;
+
+  --font-display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-body:
+    -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --content-width: 42rem;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #15181a;
+    --ink: #e8e6e1;
+    --ink-muted: #9ba3aa;
+    --rule: #2a2e31;
+    --signal: #e37a4c;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: var(--signal);
+  text-decoration-color: color-mix(in srgb, var(--signal) 45%, transparent);
+  text-underline-offset: 0.15em;
+  text-decoration-thickness: from-font;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+  border-radius: 1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .masthead {
+    animation: fade-in 0.4s ease-out;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- ページ全体レイアウト ---------- */
+
+.page {
+  max-width: var(--content-width);
+  margin-inline: auto;
+  padding: 2.5rem 1.25rem 6rem;
+}
+
+/* ---------- マストヘッド ---------- */
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.1rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead__wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.masthead__wordmark:hover {
+  color: var(--signal);
+}
+
+.masthead__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.masthead__meta a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.masthead__meta a:hover {
+  color: var(--signal);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--signal) 45%, transparent);
+}
+
+/* ---------- 本文共通 ---------- */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.back-link {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  text-decoration: none;
+  margin-bottom: 1.75rem;
+}
+
+.back-link:hover {
+  color: var(--signal);
+}
+
+.edition-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.edition-nav a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.edition-nav a:hover {
+  color: var(--signal);
+}
+
+.edition-nav__spacer {
+  flex: 1;
+}
+
+/* ---------- ダイジェスト本文(Content component出力) ---------- */
+
+.digest-date {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+  margin: 0 0 1.75rem;
+}
+
+.digest-content h2 {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 2.5rem 0 0.9rem;
+}
+
+.digest-content h2:first-child {
+  margin-top: 0;
+}
+
+.digest-content ol,
+.digest-content ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+/* 「今日の3行」。数字を signal カラーの目印として使う */
+.three-lines {
+  counter-reset: lead;
+  font-size: 1.05rem;
+  line-height: 1.9;
+}
+
+.three-lines > li {
+  counter-increment: lead;
+  padding-left: 1.7em;
+  position: relative;
+  margin-bottom: 0.7em;
+}
+
+.three-lines > li:last-child {
+  margin-bottom: 0;
+}
+
+.three-lines > li::before {
+  content: counter(lead);
+  position: absolute;
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--signal);
+}
+
+/* 「Today's Pick」。ページ内で唯一の強調要素(シグネチャー) */
+.picks-heading {
+  color: var(--signal);
+  border-left: 3px solid var(--signal);
+  padding-left: 0.6em;
+  margin-left: -0.6em;
+}
+
+.picks-list > li {
+  border-left: 3px solid var(--rule);
+  padding: 0.1em 0 0.1em 1.1em;
+  margin-bottom: 1.4em;
+  font-size: 1.02rem;
+  transition: border-color 0.15s ease;
+}
+
+.picks-list > li:hover {
+  border-left-color: var(--signal);
+}
+
+.picks-list > li:last-child {
+  margin-bottom: 0;
+}
+
+.pick-reason {
+  margin: 0.3em 0 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.pick-feed {
+  display: block;
+  margin-top: 0.2em;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+/* カテゴリ別セクション */
+.category-list > li {
+  padding: 0.55em 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.95rem;
+}
+
+.category-list > li:last-child {
+  border-bottom: none;
+}
+
+.article-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.article-feed {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.article-gist {
+  margin: 0.3em 0 0;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.no-articles {
+  color: var(--ink-muted);
+  font-style: normal;
+}
+
+/* ---------- アーカイブ一覧 ---------- */
+
+.archive-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.archive-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.85em 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.archive-list li:first-child {
+  padding-top: 0;
+}
+
+.archive-list li:last-child {
+  border-bottom: none;
+}
+
+.archive-list a {
+  font-size: 1rem;
+  text-decoration: none;
+}
+
+.archive-list a:hover {
+  text-decoration: underline;
+}
+
+.archive-list .no-articles {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+}
+
+.page-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 0 0 1.75rem;
+}
+
+.empty-state {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+/* ---------- レスポンシブ ---------- */
+
+@media (max-width: 32rem) {
+  body {
+    font-size: 16px;
+  }
+
+  .page {
+    padding: 1.5rem 1rem 4rem;
+  }
+
+  .masthead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}

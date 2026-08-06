@@ -5,3 +5,8 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+
+# miniflare(wrangler経由)がundici@7.28.0を固定指定しているが、7.29.0未満に
+# 既知の脆弱性(GHSA、Dependabot検出)があるため上書きする(2026-08-06)。
+overrides:
+  undici: "7.29.0"

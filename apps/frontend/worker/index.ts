@@ -11,6 +11,7 @@ interface Env {
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
+  ASSETS: Fetcher;
 }
 
 const BUILD_CRON = "30 23 * * *";
@@ -33,24 +34,40 @@ async function fetchDigestJson(env: Env, key: string): Promise<string | null> {
   return response.text();
 }
 
-/** Discord(content)・Slack(text)どちらのIncoming Webhookでも読めるよう両キーを送る。ベストエフォート。 */
+/**
+ * Discord(content)・Slack(text)どちらのIncoming Webhookでも読めるよう両キーを送る。
+ * 通知失敗は scheduled() を落とさずログのみ(fire-and-log)。
+ */
 async function sendAlert(env: Env, message: string): Promise<void> {
-  await fetch(env.ALERT_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ content: message, text: message }),
-  });
+  try {
+    const response = await fetch(env.ALERT_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: message, text: message }),
+    });
+    if (!response.ok) {
+      console.error(`アラート通知が失敗しました: HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.error(`アラート通知の送信に失敗しました: ${String(error)}`);
+  }
 }
 
 async function runWatchdog(env: Env): Promise<void> {
   const todayJst = toJstDateString(new Date());
-  const raw = await fetchDigestJson(env, `${todayJst}.json`);
+  let raw: string | null = null;
+  let reason = "がR2に見つかりません";
+  try {
+    raw = await fetchDigestJson(env, `${todayJst}.json`);
+  } catch (error) {
+    reason = `のR2確認に失敗しました(${String(error)})`;
+  }
   if (isDigestFresh(raw, todayJst)) {
     return;
   }
   await sendAlert(
     env,
-    `[tech-morning-digest] ${todayJst} のダイジェストがR2に見つかりません。生成ビルドが失敗した可能性があります。`,
+    `[tech-morning-digest] ${todayJst} のダイジェスト${reason}。生成ビルドが失敗した可能性があります。`,
   );
 }
 
@@ -62,6 +79,11 @@ export default {
     }
     if (controller.cron === WATCHDOG_CRON) {
       await runWatchdog(env);
+      return;
     }
+    console.error(`未知のcron: ${controller.cron}`);
+  },
+  fetch(request: Request, env: Env): Response | Promise<Response> {
+    return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;

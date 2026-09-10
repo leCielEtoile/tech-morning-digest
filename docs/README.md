@@ -1,6 +1,6 @@
 # RSS Summary — Tech Morning Digest
 
-指定したRSSフィードから毎朝情報を取得し、AIがニュースレター風にまとめた「今日のダイジェスト」を静的サイトとして配信するサービス。詳細な要件・設計判断は [`spec.md`](../spec.md)、実装の全体像は [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) を参照。
+指定したRSSフィードから毎朝情報を取得し、AIがニュースレター風にまとめた「今日のダイジェスト」を静的サイトとして配信するサービス。詳細な要件・設計判断は [`spec.md`](../spec.md) を参照。[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) は初期バックエンド実装時の計画記録であり現行の全体像ではない(現行アーキテクチャは本書「デプロイ構成(Cloudflare一本化)」を参照)。
 
 ## リポジトリ構成(pnpm workspaceモノレポ)
 
@@ -62,6 +62,8 @@ rss-summary/
 | R2_SECRET_ACCESS_KEY | Secret |
 | R2_BUCKET_NAME | 通常 |
 
+> Worker ランタイムは当日分 `{date}.json` の R2 GET しか行わないため、ここに設定する R2 トークンは読み取り専用で足りる(書き込みはビルド時変数側)。
+
 > ビルド時変数(Settings → Build)と Worker ランタイム変数(Settings → Variables and Secrets)はダッシュボード上の別セクション。両方に登録が必要な変数がある。
 
 ### R2 バケットのライフサイクルルール(初回のみ)
@@ -78,14 +80,14 @@ pnpm --filter @rss-summary/frontend exec wrangler r2 bucket lifecycle add <BUCKE
 
 1. 上記の Workers Builds プロジェクト設定を変更する。
 2. ビルド時変数を登録する。
-3. Worker ランタイム変数を登録する。
+3. Worker ランタイム変数を登録する(`ALERT_WEBHOOK_URL` はステップ5で発行してから設定する)。
 4. 既読stateを移行する:
    `git show origin/state:read-guids.json > /tmp/read-guids.json`
    `pnpm --filter @rss-summary/frontend exec wrangler r2 object put <BUCKET>/state/read-guids.json --file /tmp/read-guids.json --content-type "application/json"`
    （初回 cron より前に必須。未実施だと全記事が新着扱いになる）
 5. Discord/Slack の Incoming Webhook URL を発行し `ALERT_WEBHOOK_URL` に設定する。
 6. このブランチを main にマージ → Deploy Hook を1回手動 POST(`curl -X POST <DEPLOY_HOOK_URL>`)。
-7. ビルドログでビルド成功、`wrangler deployments` / ダッシュボードで cron 2本の登録を確認する。
+7. ビルドログでビルド成功、`wrangler triggers list`(またはダッシュボードの Worker → Settings → Trigger Events)で cron 2本の登録を確認する。
 8. 翌朝、cron 実行後に R2 の `{当日JST日付}.json` 生成とサイト反映を確認する。
 9. 問題なければ、リポジトリの GitHub Secrets を削除し、`state` ブランチを削除する。
 
@@ -137,9 +139,11 @@ Workers Builds プロジェクトの設定・変数登録・カットオーバ�
 ### フロントエンドのローカル開発
 
 ```sh
-pnpm --filter @rss-summary/frontend typecheck   # astro check
-pnpm --filter @rss-summary/frontend build       # astro build(要R2環境変数)
-pnpm --filter @rss-summary/frontend dev         # astro dev(要R2環境変数)
+pnpm --filter @rss-summary/frontend typecheck        # astro check
+pnpm --filter @rss-summary/frontend typecheck:worker # worker/ の型チェック(tsc -p worker/tsconfig.json)
+pnpm --filter @rss-summary/frontend test             # worker/ のユニットテスト(tsx --test worker/**/*.test.ts)。ネットワーク不要
+pnpm --filter @rss-summary/frontend build            # astro build(要R2環境変数)
+pnpm --filter @rss-summary/frontend dev              # astro dev(要R2環境変数)
 ```
 
 ローカルで`build`/`dev`を実行する場合、「ビルド時変数」表のR2関連変数(`CLOUDFLARE_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME`)をバックエンドと同様に環境変数として設定する必要がある(R2に到達できない場合はビルドが失敗する。意図的な挙動 — 空サイトを誤ってデプロイしないため)。

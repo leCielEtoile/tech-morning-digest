@@ -12,11 +12,10 @@
 src/index.ts (メインオーケストレーター)
 ├── config/feeds.ts        (FEEDS, CATEGORY_ORDER, MAX_ITEMS_PER_FEED — 依存なし)
 ├── fetch/feed-fetcher.ts  → fetch/feed-parser.ts, utils/retry.ts
-├── state/read-state.ts    (git worktreeでstateブランチを読み書き。依存なし)
+├── state/read-state.ts    → publish/r2-client.ts (R2オブジェクト state/read-guids.json を署名付きGET/PUT)
 ├── ai/gemini-client.ts    → config/feeds.ts (CATEGORY_ORDER), utils/retry.ts
 ├── digest/digest-payload.ts (R2保存用JSONペイロード構築。依存なし)
-├── publish/r2-client.ts   → aws4fetch, utils/retry.ts
-├── publish/deploy-hook.ts → utils/retry.ts
+├── publish/r2-client.ts   → aws4fetch, utils/retry.ts (getR2Text / putR2Text / uploadDigestJson)
 ├── utils/retry.ts          (共通リトライユーティリティ、他モジュールに依存しない)
 └── @rss-summary/shared     (toJstDateString。旧utils/date.tsはここへ統合済み)
 ```
@@ -102,13 +101,13 @@ interface DigestPayload {
 
 これらはspec.mdに明記されていないか簡潔にしか触れられていない、実装時に発見・決定した制約。**変更する際は理由を理解した上で行うこと。**
 
-1. **state commitのタイミング**(`apps/backend/src/index.ts`): `commitReadState()` はGemini生成 + R2書き込みが両方成功した後にのみ呼ぶ。Gemini失敗時に既読化すると、その記事が二度と新着として扱われなくなるため。**さらに、`commitReadState()`は`triggerDeployHook()`より必ず先に呼ぶこと**(2026-08-05の実運用検証で発見・修正: 逆順だとDeploy Hook失敗時にstateが未更新のまま終了し、翌日以降に同じ記事群を再度Geminiへ渡す無駄打ちが発生する。R2書き込みが成功した時点でその日の内容は確定しているため、既読化を先に行うのが正しい。spec.md 2章のフロー図の順序と一致させること)。
+1. **既読stateの保存タイミング**(`apps/backend/src/index.ts`): `saveReadState()` はGemini生成 + ダイジェストのR2書き込みが両方成功した後にのみ呼ぶ。Gemini失敗時に既読化すると、その記事が二度と新着として扱われなくなるため(Gemini全リトライ失敗時は`process.exitCode = 1`で終了し、stateは更新しない)。R2書き込みが成功した時点でその日の内容は確定しているので、既読化はその直後に実施する(spec.md 2章のフロー図の順序と一致させること)。
 2. **GUIDハッシュのフィード名混入**(`state/read-state.ts` の `computeGuidHash`): `sha256(feedName + "::" + guid)` としているのは、異なるフィード間でGUIDが偶然一致した場合の衝突を避けるため。
-3. **state操作はgit worktreeで実施**(`state/read-state.ts` の `commitReadState`): `main`ブランチの作業ツリーを一切変更せずに`state`ブランチへコミットするため、`--detach`な一時worktreeを使う。ここを素朴な`git checkout state`に書き換えると、CI実行中の`main`チェックアウトを破壊する。
+3. **既読stateは毎回R2へ全上書きPUT**(`state/read-state.ts` の `saveReadState`): 差分の有無に関わらず毎実行`state/read-guids.json`をPUTする。毎日オブジェクトが書き換わることでR2の30日ライフサイクル削除に巻き込まれないようにするフェイルセーフでもある。素朴な「変更時のみ書き込み」に変えないこと。
 4. **フィード取得は最新50件まで**(`config/feeds.ts` の `MAX_ITEMS_PER_FEED`): stateが失われた/古くなった場合でも過去記事を無限に新着扱いしないためのフェイルセーフ。
-5. **既読GUIDのプルーニングは14日**(`state/read-state.ts` の `PRUNE_AFTER_DAYS`): 低頻度フィードでワークフローが14日以上停止すると再通知が起きうるが、個人用途では許容(spec.md 6章)。
-6. **Gemini呼び出し失敗時はプロセスを非ゼロ終了**(`index.ts`): GitHub Actionsの標準失敗通知(ワークフロー作成者へのメール)に検知を委ねている。ここを握りつぶすと運用上の異常に誰も気づけなくなる。
-7. **R2オブジェクトが存在しない日はビルドエラーにしない**(`apps/frontend/src/lib/digests-loader.ts`): ワークフロー未実行日・stateなし初回デプロイ等で該当日のJSONが無いのは正常系。404を握りつぶしてスキップする設計を崩さないこと。
+5. **既読GUIDのプルーニングは14日**(`state/read-state.ts` の `PRUNE_AFTER_DAYS`): 低頻度フィードで生成ジョブが14日以上停止すると再通知が起きうるが、個人用途では許容(spec.md 6章)。
+6. **Gemini呼び出し失敗時はプロセスを非ゼロ終了**(`index.ts`): ビルドを失敗させ、ウォッチドッグcron(`0 2 * * *` UTC)がR2の当日分`{date}.json`欠損を検知してDiscord/SlackのWebhookへ通知することに、異常の検知を委ねている。ここを握りつぶすと運用上の異常に誰も気づけなくなる。
+7. **R2オブジェクトが存在しない日はビルドエラーにしない**(`apps/frontend/src/lib/digests-loader.ts`): 生成ビルド未実行日・stateなし初回デプロイ等で該当日のJSONが無いのは正常系。404を握りつぶしてスキップする設計を崩さないこと。
 8. **フロントエンドのR2アクセスは読み取り専用**(`apps/frontend/src/lib/r2-client.ts`): バックエンドの`r2-client.ts`(書き込み用)とは別モジュール。GETのみで、PUTする権限をフロントエンドのビルド環境に持たせる必要はない(最小権限の原則。R2トークンを分ける場合はRead-onlyで発行する)。
 9. **R2の30日ライフサイクルとフロントエンド表示の14日は別軸**: R2側の自動削除(`wrangler r2 bucket lifecycle`)はストレージコスト管理、フロントエンドの`ARCHIVE_DAYS`は表示範囲の方針。どちらか一方だけを変更しても他方に自動連動しないため、意図的に変える場合は両方を確認すること。
 
@@ -117,11 +116,10 @@ interface DigestPayload {
 依存関係・CI環境は全て`npm view`/GitHub API等で実際に最新版を再検索した上でexact pin(範囲指定`^`/`~`を使わない)している。学習データにある古いバージョン想定でコードを書かないこと。
 
 - **npm依存**: 各`apps/*/package.json`の`dependencies`/`devDependencies`は全てexactバージョン。ルートの`.npmrc`に`save-exact=true`を設定し、今後`pnpm add`する際も自動でexact pinになるようにしてある
-- **パッケージマネージャー**: ルート`package.json`の`packageManager`フィールドで`pnpm@11.18.0`を固定。`pnpm/action-setup`はこのフィールドを自動で読むため、ワークフロー側に`version`指定は不要
-  - **2026-08-06変更**: 当初はCorepack方式のintegrity hash付き(`pnpm@11.18.0+sha512-...`)で固定していたが、Cloudflare Workers Buildsの実機検証で「Invalid package manager specification...expected a semver version」エラーが発生することを確認した。Workers Buildsのツール検出処理は`packageManager`フィールドをhashサフィックスなしの単純なsemverとして解析するため、`PNPM_VERSION`ビルド環境変数を設定しても回避できない(検出結果が`pnpm@10.11.1`のまま変わらないことを実際のビルドログで確認済み)。そのためhashサフィックスを外し`pnpm@11.18.0`のみに変更した。GitHub Actions側(`pnpm/action-setup`)はhashなしの形式でも問題なく動作する。
+- **パッケージマネージャー**: ルート`package.json`の`packageManager`フィールドで`pnpm@11.18.0`を固定。Workers Builds はこのフィールドを自動で読むため、追加のバージョン指定は不要
+  - **2026-08-06変更**: 当初はCorepack方式のintegrity hash付き(`pnpm@11.18.0+sha512-...`)で固定していたが、Cloudflare Workers Buildsの実機検証で「Invalid package manager specification...expected a semver version」エラーが発生することを確認した。Workers Buildsのツール検出処理は`packageManager`フィールドをhashサフィックスなしの単純なsemverとして解析するため、`PNPM_VERSION`ビルド環境変数を設定しても回避できない(検出結果が`pnpm@10.11.1`のまま変わらないことを実際のビルドログで確認済み)。そのためhashサフィックスを外し`pnpm@11.18.0`のみに変更した。
 - **ビルドスクリプト承認**: pnpm 11は依存パッケージのpostinstallスクリプトを既定でブロックする。許可リストは`package.json`ではなく**`pnpm-workspace.yaml`の`allowBuilds`**に書く(pnpm 10→11で設定の置き場所が変わった。`package.json`の`pnpm`フィールドは11ではもう読まれない)。`esbuild`(tsx用)・`workerd`(wrangler用)を許可済み
-- **GitHub Actions**: `.github/workflows/backend-daily-digest.yml`内の各ActionはコミットSHAで固定(タグは可変なため)。バージョンはインラインコメントに明記。`runs-on`も`ubuntu-latest`ではなく`ubuntu-24.04`と明示固定(2026-08-02時点で`ubuntu-latest`が指す安定版。`ubuntu-26.04`はまだpublic preview)
-- **Node.js**: ワークフローの`node-version`は`"lts/*"`のような可変指定ではなく`"24.18.1"`(2026-08-02時点のNode 24 LTS最新パッチ)を明示
+- **Node.js**: 各`package.json`の`engines.node`で`>=24`を要求(旧ワークフローでの`node-version`固定は、生成処理のWorkers Builds移行・ワークフロー削除に伴い廃止)
 
 ### TypeScript 7へのメジャーアップグレードで踏んだ罠
 
@@ -131,7 +129,7 @@ TypeScriptは5.9系から**6系を飛ばして7.0.2**へ移行している(Micro
 
 ## 既知のリスク(未対応、意図的に見送り)
 
-- GitHub Actionsは60日間コミットがないとscheduled workflowを自動無効化する。`state`ブランチへのコミットがこの判定に含まれるかは公式ドキュメントで断定できなかった。keepaliveワークフローや外部デッドマンズスイッチは未導入(spec.md 9章)。
+- 生成ジョブ(フロントWorkerの`scheduled()`によるビルド起動 + Workers Builds)が30日以上完全に停止すると、R2の`state/read-guids.json`がライフサイクルルールで削除され、復帰時に全記事が新着扱いになる。`MAX_ITEMS_PER_FEED=50`で各フィード最新50件までに限定されるため影響は有限。14日プルーニング(spec.md 6章)・Cloudflare一本化前の「60日でscheduled workflow自動無効化」リスクと同クラスの運用リスクとして許容。
 
 ## 外部連携先の確認済み仕様(2026-08-02時点)
 
@@ -140,4 +138,5 @@ TypeScriptは5.9系から**6系を飛ばして7.0.2**へ移行している(Micro
 - **R2 Object Lifecycle Rules**: `npx wrangler r2 bucket lifecycle add <BUCKET> <NAME> --expire-days 30` のようにCLIで一度設定するだけで、カスタムの削除コード不要でオブジェクトを自動削除できる(反映まで最大24時間程度)。
 - **rss-parser**: RSS1.0(RDF)/RSS2.0/Atomいずれも実データで動作確認済み。RDFには`guid`/`id`が存在しないため`link`へのフォールバックが必須。Atomの`id`は型定義に含まれないため`Parser<{}, {id?: string}>`のカスタムフィールド指定で型を補っている(`fetch/feed-parser.ts`)。
 - **Astro Content Layer API**: `defineCollection({ loader })`のカスタムローダーはビルド時にのみ実行される。`load()`コンテキストは`renderMarkdown`ヘルパーも提供する(Markdown→HTMLの事前レンダリング、`marked`等の追加ライブラリ不要)が、本プロジェクトではR2から取得するのが最初から構造化JSONのため使用していない(2026-08-05のMarkdown廃止に伴い不要になった)。SSG出力(`output: "static"`、デフォルト)でCloudflare Workersにデプロイする場合、`@astrojs/cloudflare`アダプターは不要で、`wrangler.jsonc`の`assets.directory`のみで完結する。
-- **Workers Builds**: モノレポでは「Root directory」でサブディレクトリを指定し、「Build Watch Paths」で該当ディレクトリ配下の変更時のみビルドをトリガーできる。Deploy Hooksにも対応済み(2026年4月〜)。
+- **Workers Builds**: モノレポでは「Root directory」でサブディレクトリを指定し、「Build Watch Paths」で該当ディレクトリ配下の変更時のみビルドをトリガーできる。Deploy Hooksにも対応済み(2026年4月〜)。Free枠はビルド3,000分/月・同時ビルド1・ビルドタイムアウト20分・ビルド時変数64個。本プロジェクトはgit pushでの自動デプロイを無効化し、Deploy Hook のみをビルドのトリガーにする。
+- **Cron Triggers / Deploy Hook 起動**: Deploy Hook はフロントWorkerに同居する`scheduled()`ハンドラ(cron `30 23 * * *` UTC)からPOSTする。ウォッチドッグは cron `0 2 * * *` UTC。Cron Triggers は Workers 専用機能で、Pages 単体ではスケジュール実行できない(生成処理をWorkers Static Assets構成へ寄せた理由の一つ)。

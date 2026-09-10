@@ -1,7 +1,7 @@
 {
   "name": "@rss-summary/backend",
   "version": "0.1.0",
-  "description": "Tech Morning Digest - GitHub Actions生成処理(RSS取得・Gemini要約・R2書き込み)",
+  "description": "Tech Morning Digest - 生成処理(RSS取得・Gemini要約・R2書き込み・既読state管理)。Workers Buildsのビルドステップで実行する",
   "type": "module",
   "private": true,
   "engines": {

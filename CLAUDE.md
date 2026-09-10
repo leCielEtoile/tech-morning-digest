@@ -13,16 +13,15 @@ pnpm workspaceモノレポ。
 ```
 rss-summary/
 ├── apps/
-│   ├── backend/                 # GitHub Actions生成処理
-│   │   ├── .github/... (実体はリポジトリ直下の.github/workflows/backend-daily-digest.yml)
+│   ├── backend/                 # Workers Builds のビルドステップで実行する生成処理
 │   │   ├── src/
 │   │   │   ├── index.ts            # メインオーケストレーター
 │   │   │   ├── config/feeds.ts     # RSSフィード定義・カテゴリ分類
 │   │   │   ├── fetch/               # フィード取得・パース(RSS1.0/2.0/Atom正規化)
-│   │   │   ├── state/read-state.ts # 既読GUID管理(stateブランチへのgit読み書き)
+│   │   │   ├── state/read-state.ts # 既読GUID管理(R2オブジェクト `state/read-guids.json` の読み書き)
 │   │   │   ├── ai/gemini-client.ts # Geminiプロンプト構築・API呼び出し
 │   │   │   ├── digest/digest-payload.ts # R2保存用JSONペイロード構築
-│   │   │   ├── publish/             # R2アップロード・Deploy Hook呼び出し
+│   │   │   ├── publish/r2-client.ts # R2の署名付き読み書き(ダイジェスト・既読state)
 │   │   │   └── utils/retry.ts        # 共通リトライユーティリティ
 │   │   └── test/fixtures/            # RSS1.0/2.0/Atomのサンプルフィード
 │   └── frontend/                # Astro(SSG、Workers Static Assets)
@@ -32,22 +31,22 @@ rss-summary/
 │       │   ├── pages/                  # トップ・アーカイブ一覧・個別ページ
 │       │   ├── components/DigestBody.astro
 │       │   └── layouts/BaseLayout.astro
-│       └── wrangler.jsonc
+│       ├── worker/index.ts             # scheduled()ハンドラ(Deploy Hook起動cron + R2欠損ウォッチドッグcron)
+│       └── wrangler.jsonc              # main=worker/index.ts、triggers.crons 2本(23:30 / 02:00 UTC)
 ├── packages/
 │   └── shared/               # apps/backend・apps/frontend共通のユーティリティ(@rss-summary/shared)
-├── .github/workflows/backend-daily-digest.yml  # 毎朝の生成処理をスケジュール実行
 ├── spec.md                   # 実装仕様書(要件・設計判断の正)
 └── docs/                     # 技術ドキュメント
 ```
 
-> **配信について**: GitHub Actionsが生成処理を実行し、R2へJSON({date, generatedAt, hasNewArticles, markdown})を書き込んだ後、フロントエンド(Workers Builds)のDeploy Hookを呼び出してビルドをキックします。HTML変換はフロントエンドのビルド時に行います。既読GUIDの状態は`state`専用ブランチにgit管理で保存します
+> **配信について**: フロントWorker(Workers Static Assets)に同居する`scheduled()`ハンドラが、毎朝のcron(`30 23 * * *` UTC)でDeploy HookをPOSTしてWorkers Buildsのビルドを起動します。Workers Buildsは1回のビルドで backend の生成処理(RSSフィード取得 → 既読GUIDと突き合わせ → Gemini要約 → R2へ`{date}.json`と`state/read-guids.json`を書き込み)→ Astro ビルド → `wrangler deploy` を実行します。HTML変換はAstroのビルド時に行います。もう1本のcron(`0 2 * * *` UTC)がウォッチドッグで、当日分の生成結果がR2にあるか確認し、欠損していればDiscord/SlackのWebhookへ通知します。既読GUIDの状態はR2オブジェクト`state/read-guids.json`に保存し、実行のたびに上書きします
 
 ---
 
 ## 開発環境・ツール
 
 - **パッケージマネージャー**: pnpm(workspace構成。`apps/backend`・`apps/frontend`・`packages/shared`)
-- **ランタイム**: バックエンドはGitHub Actions(Node.js)、フロントエンドはAstro(SSG)をビルドしCloudflare Workers Static Assetsで配信。Cloudflareは R2(生成物保存)・Workers Static Assets(静的配信)のみを利用(spec.md 0章の実現可能性調査により、Cloudflare WorkersのFreeプランCPU時間制限を理由に生成処理からWorkersを排除したアーキテクチャ)
+- **ランタイム**: 生成処理(バックエンド)はWorkers Builds のビルドコマンド内(Node.js)で実行し、フロントエンドはAstro(SSG)をビルドしてCloudflare Workers Static Assetsで配信。定期実行はフロントWorkerに同居する`scheduled()`ハンドラ(Cron Triggers)。CloudflareはR2(生成物・既読state保存)・Workers Builds(生成+ビルド)・Workers Static Assets(静的配信)・Cron Triggersを利用(WorkersランタイムのFreeプランCPU時間制限を避けるため、生成処理はビルド環境側で実行する。spec.md 0章)
 - **言語**: TypeScript(`apps/frontend`のみ`astro check`の制約でTypeScript 6.0.3に固定。理由はdocs/AI-CONTEXT.md参照)
 
 ---

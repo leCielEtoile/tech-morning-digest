@@ -3,7 +3,12 @@
   "name": "tech-morning-digest",
   // ビルド日ごとに更新する(spec.md参照)
   "compatibility_date": "2026-08-02",
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist"
+  },
+  "triggers": {
+    // UTC。23:30 = JST 08:30(前日) にビルド起動、02:00 に当日分の生成結果を確認
+    "crons": ["30 23 * * *", "0 2 * * *"]
   }
 }

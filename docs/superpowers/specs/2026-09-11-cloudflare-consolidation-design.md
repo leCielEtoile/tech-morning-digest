@@ -30,6 +30,9 @@ GitHub Actions と `state` ブランチへの依存をなくす。
 
 - Cron Triggers は Workers Free プランで利用可(UTC実行、設定変更の伝播は最大15分)。
   `scheduled()` ハンドラで `fetch` 1回のCPU消費は約1ms、Free上限10msに対し余裕。
+- Pages 単体ではスケジュール実行できない(スケジュールビルド機能なし、Pages Functions は
+  `scheduled()` / Cron Triggers 非対応)。Cloudflare でネイティブに定期実行できるのは
+  Worker の Cron Trigger のみ。
 - R2 の追加バケット作成は無料。小オブジェクト1個/日の読み書きは Free 枠内。
 - **spec.md 0章がWorkersを排除した理由(CPU 10ms制限)は本方式には影響しない**。
   生成処理が動くのは Workers ランタイムではなくビルドコンテナ(フルLinux + Node、
@@ -40,7 +43,7 @@ GitHub Actions と `state` ブランチへの依存をなくす。
 ## 最終アーキテクチャ
 
 ```
-Cron Trigger 23:30 UTC(無料スケジューラWorker)
+Cron Trigger 23:30 UTC(フロントWorkerに同居する scheduled() ハンドラ)
       └─ POST → Deploy Hook
               └─ Workers Builds(既存フロントプロジェクトを流用)
                    1. pnpm install --frozen-lockfile
@@ -48,39 +51,64 @@ Cron Trigger 23:30 UTC(無料スケジューラWorker)
                         RSS取得 → Gemini要約 → R2にダイジェストJSON書き込み
                         → R2に既読state書き込み
                    3. astro build(R2からJSON読み込み)
-                   4. wrangler deploy(Workers Static Assets)
+                   4. wrangler deploy(Static Assets + scheduled ハンドラ + cron 登録)
 
-Cron Trigger 02:00 UTC(同スケジューラWorker、ウォッチドッグ)
+Cron Trigger 02:00 UTC(同フロントWorker、ウォッチドッグ)
       └─ R2の当日分JSONを確認 → 欠損/古ければ通知Webhookへ POST
 ```
+
+スケジューラ用の専用Workerは作らない。フロントは既に Workers Static Assets の Worker
+なので、その `wrangler.jsonc` に `main`(`scheduled()` のみ)と `triggers.crons` を追加し、
+cron コードを通常のフロントビルドで一緒にデプロイする。
 
 GitHub Actions・`state` ブランチ・GitHub Secrets は不要になる。
 
 ## コンポーネント設計
 
-### (a) スケジューラWorker(新規 `apps/scheduler/`)
+### (a) フロントWorkerに cron を同居させる
 
-`scheduled()` ハンドラのみを持つ最小Worker(`assets` なし、`main` のみ)。
+`apps/frontend` は現状 `assets.directory` だけの純粋な静的配信 Worker。ここに `scheduled()`
+ハンドラを持つ `main` スクリプトを追加する。`fetch` ハンドラは実装しない
+→ HTTPリクエストは従来どおり自動的に静的アセットから配信される(挙動は変わらない)。
 
-- **cron `30 23 * * *`**: `env.DEPLOY_HOOK_URL` へ `fetch(url, { method: "POST" })`。
-  失敗時は軽いリトライ(2〜3回、指数バックオフ)。
-- **cron `0 2 * * *`(ウォッチドッグ)**: R2 から当日JST日付の `${date}.json` を GET し、
-  取得できない、または `generatedAt` が当日でない場合、`env.ALERT_WEBHOOK_URL`
-  (Discord/Slack の Incoming Webhook)へ失敗通知を POST。
-- `controller.cron` の値で2つの処理を分岐。
-- デプロイはCIに載せず `pnpm --filter @rss-summary/scheduler deploy` を手動実行
-  (このWorkerはほとんど変更されないため)。
+**`apps/frontend/src/worker.ts`(新規)**
+- `scheduled(controller, env, ctx)` のみを export。
+- `controller.cron` で分岐:
+  - `"30 23 * * *"` → `env.DEPLOY_HOOK_URL` へ `fetch(url, { method: "POST" })`。
+    失敗時は軽いリトライ(2〜3回、指数バックオフ)。
+  - `"0 2 * * *"`(ウォッチドッグ)→ R2 から当日JST日付の `${date}.json` を GET し、
+    取得できない、または `generatedAt` が当日でない場合、`env.ALERT_WEBHOOK_URL`
+    (Discord/Slack の Incoming Webhook)へ失敗通知を POST。
+- R2 アクセスは `apps/frontend/src/lib/r2-client.ts` の `getR2Object(config, key)` を再利用。
+  ただし config は `process.env` ではなく `scheduled` の `env` 引数から組み立てる
+  (Worker ランタイムに `process.env` はない)。
+- 鮮度判定は純粋関数 `isDigestFresh(rawJson: string | null, todayJst: string): boolean`
+  として切り出し、単体テストする。
 
-**ファイル構成**
-- `apps/scheduler/src/index.ts` — `scheduled()` ハンドラ
-- `apps/scheduler/wrangler.jsonc` — `name`, `compatibility_date`, `main`, `triggers.crons`
-- `apps/scheduler/package.json` — `@rss-summary/scheduler`。依存: `aws4fetch`
-  (ウォッチドッグのR2署名付きGET用)。devDeps: `wrangler`, `typescript`, `@cloudflare/workers-types`
-- `apps/scheduler/tsconfig.json`
+**`apps/frontend/wrangler.jsonc`(変更)**
+```jsonc
+{
+  "name": "tech-morning-digest",
+  "compatibility_date": "2026-08-02",
+  "main": "src/worker.ts",
+  "assets": { "directory": "./dist" },
+  "triggers": { "crons": ["30 23 * * *", "0 2 * * *"] }
+}
+```
 
-**シークレット(`wrangler secret put` またはダッシュボード)**
+**`apps/frontend` のランタイム secret / 変数(`wrangler secret put` またはダッシュボード)**
 `DEPLOY_HOOK_URL` / `ALERT_WEBHOOK_URL` / `CLOUDFLARE_ACCOUNT_ID` /
 `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME`
+- これは **Worker ランタイムの** secret。バックエンド生成ステップが使う **ビルド時環境変数**
+  (下記 b)とは別枠で、同じ Workers Builds プロジェクトに登録する。
+- `CLOUDFLARE_ACCOUNT_ID` / `R2_*` はビルド時とランタイムの両方で必要になり重複するが、
+  登録は一度きりのセットアップ作業なので許容する。
+
+**確認事項(実装時)**: 公式ドキュメントで「static assets と Worker script は併用可能、
+アセットに一致すればアセット優先、一致しなければ Worker を呼ぶ」ことは確認済み。
+`fetch` ハンドラを持たない `main`(cron専用)が `wrangler deploy` で許容されるかは実機確認する。
+許容されない場合のフォールバック: `assets.binding: "ASSETS"` を設定し、worker.ts に
+`fetch: (req, env) => env.ASSETS.fetch(req)` を1行だけ追加する。
 
 ### (b) 生成処理をビルドに統合(既存フロントの Workers Builds プロジェクト設定変更)
 
@@ -90,7 +118,8 @@ GitHub Actions・`state` ブランチ・GitHub Secrets は不要になる。
 - **Build command**:
   `pnpm install --frozen-lockfile && pnpm --filter @rss-summary/backend start && pnpm --filter @rss-summary/frontend build`
 - **Deploy command**: `pnpm --filter @rss-summary/frontend exec wrangler deploy`
-- **ビルド環境変数を追加**:
+  (`src/worker.ts` と cron トリガーもこの deploy で登録される)
+- **ビルド時環境変数を追加**:
   `GEMINI_API_KEY`(secret) / `GEMINI_MODEL`(任意) / `CLOUDFLARE_ACCOUNT_ID` /
   `R2_ACCESS_KEY_ID`(secret) / `R2_SECRET_ACCESS_KEY`(secret) / `R2_BUCKET_NAME`
 
@@ -117,7 +146,8 @@ GitHub Actions・`state` ブランチ・GitHub Secrets は不要になる。
   - `getR2Text(config, key): Promise<string | null>`(404 は null)
   - `putR2Text(config, key, body, contentType): Promise<void>`(リトライ付き)
   - 既存 `uploadDigestJson` は `putR2Text` を使う薄いラッパにするか、そのまま残す。
-- フロントエンドの `apps/frontend/src/lib/r2-client.ts` は変更しない(読み取り専用のまま)。
+
+`apps/frontend/src/lib/r2-client.ts` の `getR2Object` は読み取り専用のまま。worker.ts から再利用する。
 
 `apps/backend/src/index.ts`:
 
@@ -129,23 +159,24 @@ GitHub Actions・`state` ブランチ・GitHub Secrets は不要になる。
 ## コード変更一覧
 
 **追加**
-- `apps/scheduler/`(`src/index.ts` / `wrangler.jsonc` / `package.json` / `tsconfig.json`)
-- `apps/scheduler/src/index.test.ts`(`scheduled()` の分岐・Webhook判定の単体テスト)
+- `apps/frontend/src/worker.ts` — `scheduled()` ハンドラ + `isDigestFresh` 純粋関数
+- `apps/frontend/src/worker.test.ts` — `isDigestFresh` / cron 分岐の単体テスト
+  (frontend にテスト基盤がないため `tsx` devDep と `test` スクリプトを追加)
 
 **変更**
+- `apps/frontend/wrangler.jsonc` — `main` と `triggers.crons` を追加
+- `apps/frontend/package.json` — `@cloudflare/workers-types`・`tsx` を devDep 追加、`test` スクリプト追加
 - `apps/backend/src/state/read-state.ts` — git実装 → R2実装、`commitReadState`→`saveReadState`
 - `apps/backend/src/publish/r2-client.ts` — 汎用 `getR2Text` / `putR2Text` を追加
 - `apps/backend/src/index.ts` — state関数の引数変更、Deploy Hook呼び出し削除
 - `apps/backend/src/state/read-state.test.ts` — R2 load/save のテスト追加(`fetch` モック)
 - `apps/backend/package.json` — `description` 更新(依存の増減なし)
-- `pnpm-workspace.yaml` — 必要なら scheduler を追加(`apps/*` グロブで自動包含なら不要)
-- ルート `package.json` — `scheduler:deploy` / `scheduler:typecheck` スクリプト追加
 - `docs/AI-CONTEXT.md` / `docs/README.md` — アーキテクチャ・セットアップ手順を更新
 - `CLAUDE.md` — プロジェクト構造図の更新
 
 **削除**
 - `.github/workflows/backend-daily-digest.yml`
-- `apps/backend/src/publish/deploy-hook.ts`(Deploy Hook呼び出しはスケジューラWorkerへ移動)
+- `apps/backend/src/publish/deploy-hook.ts`(Deploy Hook呼び出しはフロントWorkerの `scheduled()` へ移動)
 - `state` ブランチ(移行・動作確認後。当面は残置してロールバック用に保持)
 
 ## エラーハンドリング
@@ -155,7 +186,7 @@ GitHub Actions・`state` ブランチ・GitHub Secrets は不要になる。
 | Gemini全リトライ失敗 | `process.exitCode=1` → ビルド失敗 → デプロイされず前日サイト維持(現行同等)。ウォッチドッグが翌02:00 UTCに検知し通知 |
 | 全フィード取得失敗 | 新着0件として続行(現行同等) |
 | R2書き込み失敗 | `withRetry` で最大3回、それでも失敗ならビルド失敗 |
-| Deploy Hook POST失敗(スケジューラ側) | スケジューラWorkerで軽リトライ。失敗すればその日ビルドされず、ウォッチドッグが検知 |
+| Deploy Hook POST失敗(フロントWorkerの `scheduled()` 側) | worker.ts で軽リトライ。失敗すればその日ビルドされず、ウォッチドッグが検知 |
 | 1日分のR2オブジェクト欠損 | フロントのローダーが従来どおり握りつぶす(AI-CONTEXT 不変条件 #7) |
 
 ## 決定事項
@@ -166,37 +197,43 @@ GitHub Actions・`state` ブランチ・GitHub Secrets は不要になる。
    - **既知のリスク**: ジョブが30日以上完全停止すると state が消え、再通知が起きうる。
      既存の14日プルーニング・60日リスクと同クラスとして README / AI-CONTEXT に明記する。
 2. **失敗通知**: ウォッチドッグ cron + Webhook。
-   - スケジューラWorkerに2本目の cron(02:00 UTC)。当日分R2オブジェクトの
+   - フロントWorkerに2本目の cron(02:00 UTC)。当日分R2オブジェクトの
      `generatedAt` が当日でなければ `ALERT_WEBHOOK_URL`(Discord/Slack Incoming Webhook)へ通知。
    - 完全無料。GitHub Actions の失敗メール通知の代替。
-3. **生成処理の実行場所**: 既存フロントの Workers Builds プロジェクトに統合(専用の2つ目の
-   ビルドプロジェクトは作らない)。ビルド1回で生成+デプロイが完結し、Deploy Hook / ビルドが1系統で済む。
+3. **スケジューラの置き場所**: 専用Workerを作らず、既存フロントWorker(Static Assets)に
+   `scheduled()` ハンドラと cron を同居させる。新規デプロイ対象ゼロ、cron コードは
+   通常のフロントビルドで一緒にデプロイされる。
+4. **生成処理の実行場所**: 既存フロントの Workers Builds プロジェクトに統合(専用の2つ目の
+   ビルドプロジェクトは作らない)。ビルド1回で生成+デプロイが完結する。
 
 ## 手動セットアップ(コード外、READMEに手順を記載)
 
-1. Workers Builds プロジェクト設定変更(上記 b)+ ビルド環境変数登録
-2. 既読state初回移行: `state` ブランチの `read-guids.json` を
+1. Workers Builds プロジェクト設定変更(上記 b)+ ビルド時環境変数登録
+2. フロントWorker のランタイム secret 登録(上記 a、`wrangler secret put` × 6)
+3. 既読state初回移行: `state` ブランチの `read-guids.json` を
    `wrangler r2 object put <bucket>/state/read-guids.json --file=...` で投入
-3. スケジューラWorkerを1回デプロイ + シークレット設定
 4. Discord/Slack の Incoming Webhook URL を発行し `ALERT_WEBHOOK_URL` に設定
-5. 動作確認後、GitHub Secrets とワークフローを撤去、`state` ブランチ削除
+5. `src/worker.ts` を含む変更を一度デプロイ(Deploy Hook か git push)→ cron トリガーが登録される
+6. 動作確認後、GitHub Secrets とワークフローを撤去、`state` ブランチ削除
 
 ## テスト
 
 - `pnpm --filter @rss-summary/backend test`(node標準テストランナー。R2 state の新規テスト含む、`fetch` をモック)
-- `pnpm --filter @rss-summary/scheduler test` / `typecheck`
+- `pnpm --filter @rss-summary/frontend test`(`isDigestFresh` / cron 分岐)
 - 全パッケージ `typecheck`
-- `wrangler dev --test-scheduled` でスケジューラの `scheduled()` をローカル確認
+- `wrangler dev --test-scheduled` でフロントWorkerの `scheduled()` をローカル確認
+  (`?cron=` で 2 つのスケジュールを個別に検証)
 - 手動E2E: Deploy Hook を POST → ビルドログ → R2オブジェクト生成 → サイト反映を確認
 
 ## ロールバック
 
 - ワークフローファイルはgit履歴に残るため復元可能。
 - `state` ブランチは移行後しばらく残置。
-- Workers Builds のビルド設定を元(`apps/frontend` ルート、astro buildのみ)に戻せば旧構成へ即復帰。
+- `apps/frontend/wrangler.jsonc` から `main` と `triggers` を外して再デプロイ + Workers Builds の
+  ビルド設定を元(`apps/frontend` ルート、astro buildのみ)に戻せば旧構成へ即復帰。
 
 ## スコープ外(YAGNI)
 
+- 専用のスケジューラWorker / 専用のバックエンド用 Workers Builds プロジェクト。
 - Workers Builds Event Subscriptions(Queue経由)での高度な通知。将来必要になれば追加。
-- 専用のバックエンド用 Workers Builds プロジェクト。
 - state の履歴管理(git履歴の代替)。state はキャッシュ用途のため不要。

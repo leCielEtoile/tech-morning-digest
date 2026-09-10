@@ -53,3 +53,13 @@ test("postWithRetry: 400は即throw(リトライしない)", async () => {
     m.restore();
   }
 });
+
+test("postWithRetry: ネットワークエラーが続くと指定回数リトライして最後にthrow", async () => {
+  const m = mockFetch([() => { throw new Error("Network error"); }]);
+  try {
+    await assert.rejects(() => postWithRetry("https://example.test/hook", 3));
+    assert.equal(m.calls(), 3);
+  } finally {
+    m.restore();
+  }
+});

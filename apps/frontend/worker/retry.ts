@@ -5,22 +5,16 @@
 export async function postWithRetry(url: string, attempts = 3): Promise<void> {
   let lastError: unknown = new Error(`POST ${url} が実行されませんでした`);
   for (let attempt = 0; attempt < attempts; attempt += 1) {
+    let retryable = true;
     try {
       const response = await fetch(url, { method: "POST" });
-      if (response.ok) {
-        return;
-      }
+      if (response.ok) return;
       lastError = new Error(`POST ${url}: HTTP ${response.status}`);
-      if (response.status !== 429 && response.status < 500) {
-        throw lastError;
-      }
+      retryable = response.status === 429 || response.status >= 500;
     } catch (error) {
-      // Re-throw non-retryable HTTP errors (4xx except 429)
-      if (error instanceof Error && error.message.includes("HTTP")) {
-        throw error;
-      }
       lastError = error;
     }
+    if (!retryable) throw lastError;
     if (attempt < attempts - 1) {
       await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
     }

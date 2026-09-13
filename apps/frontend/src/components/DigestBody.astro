@@ -24,7 +24,7 @@ const dateLabel = formatJstDateLabel(data.date);
 				</ol>
 
 				{data.categories.length > 0 && (
-					<nav class="category-tabs" aria-label="カテゴリ">
+					<nav class="category-tabs" aria-label="カテゴリ" data-category-tabs>
 						{data.categories.map((category, i) => (
 							<a href={`#category-${i}`} class="category-tabs__item" data-category-tab>
 								{category.category}
@@ -74,31 +74,100 @@ const dateLabel = formatJstDateLabel(data.date);
 
 <script>
 	// カテゴリタブ: JS無効環境でも全カテゴリが縦に並ぶページ内リンクとして機能する(プログレッシブエンハンスメント)。
-	// JS有効時のみ、クリックされたカテゴリのセクション以外をhiddenにしてタブ切り替えの見た目にする。
+	// role="tab"等のARIA属性もJS実行時のみ付与する。JSが動かない場合に「タブ widgetのはずなのに
+	// 矢印キー操作ができない」という不完全なARIA実装にしないため(WAI-ARIA Authoring Practices準拠)。
 	function initCategoryTabs(): void {
+		const tablist = document.querySelector<HTMLElement>("[data-category-tabs]");
 		const tabs = document.querySelectorAll<HTMLAnchorElement>("[data-category-tab]");
 		const sections = document.querySelectorAll<HTMLElement>("[data-category-section]");
-		if (tabs.length === 0 || sections.length === 0) return;
+		if (!tablist || tabs.length === 0 || sections.length === 0) return;
 
-		function activate(targetId: string): void {
-			tabs.forEach((tab) => {
-				tab.classList.toggle("is-active", tab.getAttribute("href") === `#${targetId}`);
+		const tabList = Array.from(tabs);
+		const sectionList = Array.from(sections);
+
+		tablist.setAttribute("role", "tablist");
+		tabList.forEach((tab, i) => {
+			tab.setAttribute("role", "tab");
+			tab.id = `category-tab-${i}`;
+			tab.setAttribute("aria-controls", sectionList[i]?.id ?? "");
+		});
+		sectionList.forEach((section, i) => {
+			section.setAttribute("role", "tabpanel");
+			section.setAttribute("aria-labelledby", tabList[i]?.id ?? "");
+		});
+
+		function activate(index: number): void {
+			tabList.forEach((tab, i) => {
+				const active = i === index;
+				tab.classList.toggle("is-active", active);
+				tab.setAttribute("aria-selected", String(active));
+				tab.tabIndex = active ? 0 : -1;
 			});
-			sections.forEach((section) => {
-				section.hidden = section.id !== targetId;
+			sectionList.forEach((section, i) => {
+				section.hidden = i !== index;
 			});
 		}
 
-		tabs.forEach((tab) => {
+		tabList.forEach((tab, i) => {
 			tab.addEventListener("click", (event) => {
 				event.preventDefault();
-				const targetId = tab.getAttribute("href")?.slice(1);
-				if (targetId) activate(targetId);
+				activate(i);
+			});
+
+			// 矢印キー・Home/Endでのタブ間移動(WAI-ARIA Authoring Practicesのタブパターン、automatic activation)
+			tab.addEventListener("keydown", (event) => {
+				let nextIndex: number | null = null;
+				if (event.key === "ArrowRight") nextIndex = (i + 1) % tabList.length;
+				else if (event.key === "ArrowLeft") nextIndex = (i - 1 + tabList.length) % tabList.length;
+				else if (event.key === "Home") nextIndex = 0;
+				else if (event.key === "End") nextIndex = tabList.length - 1;
+				if (nextIndex !== null) {
+					event.preventDefault();
+					tabList[nextIndex]?.focus();
+					activate(nextIndex);
+				}
 			});
 		});
 
-		const firstSection = sections[0];
-		if (firstSection) activate(firstSection.id);
+		// モバイルでの左右スワイプでもタブ切り替えできるようにする。表示中パネルのみが
+		// タッチを受け取れるため、パネルごとの現在indexはsectionList.indexOfで特定できる。
+		const SWIPE_THRESHOLD_PX = 50;
+		let touchStartX = 0;
+		let touchStartY = 0;
+		sectionList.forEach((section) => {
+			section.addEventListener(
+				"touchstart",
+				(event) => {
+					const touch = event.touches[0];
+					if (!touch) return;
+					touchStartX = touch.clientX;
+					touchStartY = touch.clientY;
+				},
+				{ passive: true },
+			);
+
+			section.addEventListener(
+				"touchend",
+				(event) => {
+					const touch = event.changedTouches[0];
+					if (!touch) return;
+					const deltaX = touch.clientX - touchStartX;
+					const deltaY = touch.clientY - touchStartY;
+					if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX || Math.abs(deltaX) < Math.abs(deltaY)) return;
+					const currentIndex = sectionList.indexOf(section);
+					if (currentIndex === -1) return;
+					const nextIndex =
+						deltaX < 0 ? (currentIndex + 1) % tabList.length : (currentIndex - 1 + tabList.length) % tabList.length;
+					activate(nextIndex);
+				},
+				{ passive: true },
+			);
+		});
+
+		// location.hashが既存カテゴリを指していればそれを初期表示にする(共有リンクでのディープリンク対応)
+		const requestedId = location.hash.slice(1);
+		const requestedIndex = sectionList.findIndex((section) => section.id === requestedId);
+		activate(requestedIndex !== -1 ? requestedIndex : 0);
 	}
 
 	initCategoryTabs();

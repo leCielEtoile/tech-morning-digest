@@ -255,24 +255,53 @@ a:focus-visible {
   color: var(--signal);
 }
 
-/* 「Today's Pick」。ページ内で唯一の強調要素(シグネチャー) */
-.picks-heading {
-  color: var(--signal);
-  border-left: 3px solid var(--signal);
-  padding-left: 0.6em;
-  margin-left: -0.6em;
+/* カテゴリタブ: 横スクロールのページ内リンク。JS有効時はタブ切り替えの見た目になる */
+.category-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding: 0.75rem 0;
+  margin: 0 0 1.5rem;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  scrollbar-width: none;
 }
 
+.category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.category-tabs__item {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  text-decoration: none;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.category-tabs__item:hover {
+  color: var(--ink);
+}
+
+.category-tabs__item.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
+
+/* カテゴリごとの「注目記事」。picksが0件のカテゴリでは描画されない */
 .picks-list > li {
-  border-left: 3px solid var(--rule);
+  border-left: 3px solid var(--signal);
   padding: 0.1em 0 0.1em 1.1em;
   margin-bottom: 1.4em;
   font-size: 1.02rem;
-  transition: border-color 0.15s ease;
-}
-
-.picks-list > li:hover {
-  border-left-color: var(--signal);
 }
 
 .picks-list > li:last-child {
@@ -285,9 +314,15 @@ a:focus-visible {
   font-size: 0.9rem;
 }
 
+.pick-summary {
+  margin: 0.5em 0 0;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
 .pick-feed {
   display: block;
-  margin-top: 0.2em;
+  margin-top: 0.4em;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--ink-muted);
@@ -406,5 +441,9 @@ a:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+
+  .category-tabs {
+    gap: 0.9rem;
   }
 }

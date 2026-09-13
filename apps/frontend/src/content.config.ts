@@ -15,11 +15,11 @@ const digests = defineCollection({
     generatedAt: z.string(),
     hasNewArticles: z.boolean(),
     threeLines: z.array(z.string()),
-    picks: z.array(digestArticleRef.extend({ reason: z.string() })),
     categories: z.array(
       z.object({
         category: z.string(),
-        articles: z.array(digestArticleRef.extend({ gist: z.string() })),
+        picks: z.array(digestArticleRef.extend({ reason: z.string(), summary: z.string() })),
+        others: z.array(digestArticleRef.extend({ gist: z.string() })),
       }),
     ),
   }),

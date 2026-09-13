@@ -17,8 +17,11 @@ export interface DigestPayload {
   generatedAt: string;
   hasNewArticles: boolean;
   threeLines: string[];
-  picks: (DigestArticleRef & { reason: string })[];
-  categories: { category: string; articles: (DigestArticleRef & { gist: string })[] }[];
+  categories: {
+    category: string;
+    picks: (DigestArticleRef & { reason: string; summary: string })[];
+    others: (DigestArticleRef & { gist: string })[];
+  }[];
 }
 
 interface MinimalLogger {
@@ -36,7 +39,8 @@ function isArticleRef(value: unknown): value is DigestArticleRef {
   );
 }
 
-function isDigestPayload(value: unknown): value is DigestPayload {
+/** apps/frontend/src/content.config.ts のzodスキーマと形を一致させること */
+export function isDigestPayload(value: unknown): value is DigestPayload {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
   return (
@@ -45,16 +49,21 @@ function isDigestPayload(value: unknown): value is DigestPayload {
     typeof record["hasNewArticles"] === "boolean" &&
     Array.isArray(record["threeLines"]) &&
     record["threeLines"].every((line) => typeof line === "string") &&
-    Array.isArray(record["picks"]) &&
-    record["picks"].every((p) => isArticleRef(p) && typeof (p as unknown as Record<string, unknown>)["reason"] === "string") &&
     Array.isArray(record["categories"]) &&
     record["categories"].every(
       (c) =>
         typeof c === "object" &&
         c !== null &&
         typeof (c as Record<string, unknown>)["category"] === "string" &&
-        Array.isArray((c as Record<string, unknown>)["articles"]) &&
-        ((c as Record<string, unknown>)["articles"] as unknown[]).every(
+        Array.isArray((c as Record<string, unknown>)["picks"]) &&
+        ((c as Record<string, unknown>)["picks"] as unknown[]).every(
+          (p) =>
+            isArticleRef(p) &&
+            typeof (p as unknown as Record<string, unknown>)["reason"] === "string" &&
+            typeof (p as unknown as Record<string, unknown>)["summary"] === "string",
+        ) &&
+        Array.isArray((c as Record<string, unknown>)["others"]) &&
+        ((c as Record<string, unknown>)["others"] as unknown[]).every(
           (a) => isArticleRef(a) && typeof (a as unknown as Record<string, unknown>)["gist"] === "string",
         ),
     )

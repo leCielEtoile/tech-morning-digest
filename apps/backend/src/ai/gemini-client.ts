@@ -43,8 +43,8 @@ export function buildPrompt(articles: Article[]): string {
 
 # タスク
 1. 全体を俯瞰した「今日の3行」を3行で作成してください
-2. 特に重要と思われる記事を1〜3件選び(articleIdで指定)、それぞれ選定理由を1文で添えてください
-3. 全ての記事について、最も適切なカテゴリを1つ選んでください(articleIdごとにcategoryを指定。下記カテゴリ一覧から選ぶこと。記事の実際の内容で判断し、出典元の傾向だけで機械的に決めないこと)。あわせて、記事ごとに内容を一行(30〜50文字程度)で要約したあらすじも添えてください
+2. 全ての記事について、最も適切なカテゴリを1つ選んでください(articleIdごとにcategoryを指定。下記カテゴリ一覧から選ぶこと。記事の実際の内容で判断し、出典元の傾向だけで機械的に決めないこと)。あわせて、記事ごとに内容を一行(30〜50文字程度)で要約したあらすじも添えてください
+3. カテゴリごとに特に重要と思われる記事を1〜3件選び(articleIdとcategoryで指定。該当記事がなければ0件でも構いません)、それぞれ選定理由を1文と、内容の要約を3〜6文程度で添えてください
 
 # カテゴリ一覧
 ${CATEGORY_ORDER.join(" / ")}
@@ -53,9 +53,11 @@ ${CATEGORY_ORDER.join(" / ")}
 ${JSON.stringify(promptArticles, null, 2)}`;
 }
 
-interface RawPick {
+interface RawCategoryPick {
   articleId: number;
+  category: string;
   reason: string;
+  summary: string;
 }
 
 interface RawCategorizedArticle {
@@ -66,7 +68,7 @@ interface RawCategorizedArticle {
 
 interface RawGeminiDigest {
   threeLines: string[];
-  picks: RawPick[];
+  categoryPicks: RawCategoryPick[];
   categorizedArticles: RawCategorizedArticle[];
 }
 
@@ -76,13 +78,15 @@ function isRawGeminiDigest(value: unknown): value is RawGeminiDigest {
   return (
     Array.isArray(record["threeLines"]) &&
     record["threeLines"].every((line) => typeof line === "string") &&
-    Array.isArray(record["picks"]) &&
-    record["picks"].every(
+    Array.isArray(record["categoryPicks"]) &&
+    record["categoryPicks"].every(
       (p) =>
         typeof p === "object" &&
         p !== null &&
         typeof (p as Record<string, unknown>)["articleId"] === "number" &&
-        typeof (p as Record<string, unknown>)["reason"] === "string",
+        typeof (p as Record<string, unknown>)["category"] === "string" &&
+        typeof (p as Record<string, unknown>)["reason"] === "string" &&
+        typeof (p as Record<string, unknown>)["summary"] === "string",
     ) &&
     Array.isArray(record["categorizedArticles"]) &&
     record["categorizedArticles"].every(
@@ -104,16 +108,18 @@ const RESPONSE_SCHEMA = {
       items: { type: "STRING" },
       description: "全体の潮流を俯瞰した3行の要約。必ず3件。",
     },
-    picks: {
+    categoryPicks: {
       type: "ARRAY",
-      description: "特に重要な記事1〜3件。",
+      description: "カテゴリごとに特に重要な記事1〜3件(該当記事がなければ0件)。",
       items: {
         type: "OBJECT",
         properties: {
           articleId: { type: "INTEGER" },
+          category: { type: "STRING", enum: CATEGORY_ORDER },
           reason: { type: "STRING", description: "選定理由を1文で。" },
+          summary: { type: "STRING", description: "記事内容の要約。3〜6文程度。" },
         },
-        required: ["articleId", "reason"],
+        required: ["articleId", "category", "reason", "summary"],
       },
     },
     categorizedArticles: {
@@ -130,12 +136,13 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["threeLines", "picks", "categorizedArticles"],
+  required: ["threeLines", "categoryPicks", "categorizedArticles"],
 };
 
-export interface DigestPick {
+export interface DigestCategoryPick {
   article: Article;
   reason: string;
+  summary: string;
 }
 
 export interface DigestCategoryArticle {
@@ -145,13 +152,55 @@ export interface DigestCategoryArticle {
 
 export interface DigestCategory {
   category: Category;
-  articles: DigestCategoryArticle[];
+  picks: DigestCategoryPick[];
+  others: DigestCategoryArticle[];
 }
 
 export interface GeminiDigestResult {
   threeLines: string[];
-  picks: DigestPick[];
   categories: DigestCategory[];
+}
+
+/**
+ * Geminiの生レスポンスと記事マップから、カテゴリごとのpicks/othersに整形する。
+ * ネットワーク呼び出しを含まない純粋関数として切り出し、単体テスト可能にしている。
+ */
+export function buildDigestResult(raw: RawGeminiDigest, idToArticle: Map<number, Article>): GeminiDigestResult {
+  const picksByCategory = new Map<Category, DigestCategoryPick[]>();
+  // pickされた記事は、categorizedArticles側のcategoryと食い違っていてもothersに二重掲載しない
+  // よう、カテゴリを問わずグローバルに除外する(Geminiの出力矛盾に対する防御)。
+  const pickedArticleIds = new Set<number>();
+  for (const pick of raw.categoryPicks) {
+    if (pickedArticleIds.has(pick.articleId)) continue; // 同一articleIdが複数カテゴリのpicksに二重掲載されるのを防ぐ
+    const article = idToArticle.get(pick.articleId);
+    if (!article) continue; // 存在しないarticleIdを指した場合はスキップ(壊れたダイジェストより一部欠けたダイジェストの方がまし)
+    if (!CATEGORY_ORDER.includes(pick.category as Category)) continue; // enumで縛っていても念のため防御
+    const category = pick.category as Category;
+    const list = picksByCategory.get(category) ?? [];
+    list.push({ article, reason: pick.reason, summary: pick.summary });
+    picksByCategory.set(category, list);
+    pickedArticleIds.add(pick.articleId);
+  }
+
+  const othersByCategory = new Map<Category, DigestCategoryArticle[]>();
+  for (const entry of raw.categorizedArticles) {
+    if (pickedArticleIds.has(entry.articleId)) continue;
+    const article = idToArticle.get(entry.articleId);
+    if (!article) continue;
+    if (!CATEGORY_ORDER.includes(entry.category as Category)) continue;
+    const category = entry.category as Category;
+    const list = othersByCategory.get(category) ?? [];
+    list.push({ article, gist: entry.gist });
+    othersByCategory.set(category, list);
+  }
+
+  const categories: DigestCategory[] = CATEGORY_ORDER.map((category) => ({
+    category,
+    picks: picksByCategory.get(category) ?? [],
+    others: othersByCategory.get(category) ?? [],
+  })).filter((c) => c.picks.length > 0 || c.others.length > 0);
+
+  return { threeLines: raw.threeLines, categories };
 }
 
 /**
@@ -192,27 +241,5 @@ export async function generateDigestData(articles: Article[], apiKey: string): P
     return parsed;
   }, GEMINI_RETRY_OPTIONS);
 
-  const picks: DigestPick[] = [];
-  for (const pick of raw.picks) {
-    const article = idToArticle.get(pick.articleId);
-    if (!article) continue; // 存在しないarticleIdを指した場合はスキップ(壊れたダイジェストより一部欠けたダイジェストの方がまし)
-    picks.push({ article, reason: pick.reason });
-  }
-
-  const categoryMap = new Map<Category, DigestCategoryArticle[]>();
-  for (const entry of raw.categorizedArticles) {
-    const article = idToArticle.get(entry.articleId);
-    if (!article) continue;
-    if (!CATEGORY_ORDER.includes(entry.category as Category)) continue; // enumで縛っていても念のため防御
-    const category = entry.category as Category;
-    const list = categoryMap.get(category) ?? [];
-    list.push({ article, gist: entry.gist });
-    categoryMap.set(category, list);
-  }
-  const categories: DigestCategory[] = CATEGORY_ORDER.map((category) => ({
-    category,
-    articles: categoryMap.get(category) ?? [],
-  })).filter((c) => c.articles.length > 0);
-
-  return { threeLines: raw.threeLines, picks, categories };
+  return buildDigestResult(raw, idToArticle);
 }

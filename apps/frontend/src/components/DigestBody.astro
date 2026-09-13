@@ -23,36 +23,47 @@ const dateLabel = formatJstDateLabel(data.date);
 					))}
 				</ol>
 
-				{data.picks.length > 0 && (
-					<Fragment>
-						<h2 class="picks-heading">Today's Pick</h2>
-						<ol class="picks-list">
-							{data.picks.map((pick) => (
-								<li>
-									<a href={pick.link}>{pick.title}</a>
-									<p class="pick-reason">{pick.reason}</p>
-									<span class="pick-feed">{pick.feedName}</span>
-								</li>
-							))}
-						</ol>
-					</Fragment>
+				{data.categories.length > 0 && (
+					<nav class="category-tabs" aria-label="カテゴリ">
+						{data.categories.map((category, i) => (
+							<a href={`#category-${i}`} class="category-tabs__item" data-category-tab>
+								{category.category}
+							</a>
+						))}
+					</nav>
 				)}
 
-				{data.categories.map((category) => (
-					<Fragment>
+				{data.categories.map((category, i) => (
+					<section id={`category-${i}`} class="category-section" data-category-section>
 						<h2 class="eyebrow">{category.category}</h2>
-						<ul class="category-list">
-							{category.articles.map((article) => (
-								<li>
-									<div class="article-heading">
-										<a href={article.link}>{article.title}</a>
-										<span class="article-feed">{article.feedName}</span>
-									</div>
-									<p class="article-gist">{article.gist}</p>
-								</li>
-							))}
-						</ul>
-					</Fragment>
+
+						{category.picks.length > 0 && (
+							<ol class="picks-list">
+								{category.picks.map((pick) => (
+									<li>
+										<a href={pick.link}>{pick.title}</a>
+										<p class="pick-reason">{pick.reason}</p>
+										<p class="pick-summary">{pick.summary}</p>
+										<span class="pick-feed">{pick.feedName}</span>
+									</li>
+								))}
+							</ol>
+						)}
+
+						{category.others.length > 0 && (
+							<ul class="category-list">
+								{category.others.map((article) => (
+									<li>
+										<div class="article-heading">
+											<a href={article.link}>{article.title}</a>
+											<span class="article-feed">{article.feedName}</span>
+										</div>
+										<p class="article-gist">{article.gist}</p>
+									</li>
+								))}
+							</ul>
+						)}
+					</section>
 				))}
 			</div>
 		) : (
@@ -60,3 +71,35 @@ const dateLabel = formatJstDateLabel(data.date);
 		)
 	}
 </article>
+
+<script>
+	// カテゴリタブ: JS無効環境でも全カテゴリが縦に並ぶページ内リンクとして機能する(プログレッシブエンハンスメント)。
+	// JS有効時のみ、クリックされたカテゴリのセクション以外をhiddenにしてタブ切り替えの見た目にする。
+	function initCategoryTabs(): void {
+		const tabs = document.querySelectorAll<HTMLAnchorElement>("[data-category-tab]");
+		const sections = document.querySelectorAll<HTMLElement>("[data-category-section]");
+		if (tabs.length === 0 || sections.length === 0) return;
+
+		function activate(targetId: string): void {
+			tabs.forEach((tab) => {
+				tab.classList.toggle("is-active", tab.getAttribute("href") === `#${targetId}`);
+			});
+			sections.forEach((section) => {
+				section.hidden = section.id !== targetId;
+			});
+		}
+
+		tabs.forEach((tab) => {
+			tab.addEventListener("click", (event) => {
+				event.preventDefault();
+				const targetId = tab.getAttribute("href")?.slice(1);
+				if (targetId) activate(targetId);
+			});
+		});
+
+		const firstSection = sections[0];
+		if (firstSection) activate(firstSection.id);
+	}
+
+	initCategoryTabs();
+</script>

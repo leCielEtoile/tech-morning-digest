@@ -12,6 +12,15 @@ const sampleArticle: Article = {
   pubDate: null,
 };
 
+const otherArticle: Article = {
+  title: "その他記事",
+  link: "https://example.com/b",
+  guid: "https://example.com/b",
+  feedName: "TestFeed",
+  summary: "概要2",
+  pubDate: null,
+};
+
 test("buildDigestPayload: digestがある場合はhasNewArticles: trueで構築される", () => {
   const now = new Date("2026-08-02T23:35:00.000Z");
   const payload = buildDigestPayload({
@@ -19,9 +28,12 @@ test("buildDigestPayload: digestがある場合はhasNewArticles: trueで構築�
     now,
     digest: {
       threeLines: ["1行目", "2行目", "3行目"],
-      picks: [{ article: sampleArticle, reason: "重要だから" }],
       categories: [
-        { category: "開発・プログラミング", articles: [{ article: sampleArticle, gist: "一行あらすじ" }] },
+        {
+          category: "開発・プログラミング",
+          picks: [{ article: sampleArticle, reason: "重要だから", summary: "要約文。" }],
+          others: [{ article: otherArticle, gist: "一行あらすじ" }],
+        },
       ],
     },
   });
@@ -31,13 +43,19 @@ test("buildDigestPayload: digestがある場合はhasNewArticles: trueで構築�
     generatedAt: "2026-08-02T23:35:00.000Z",
     hasNewArticles: true,
     threeLines: ["1行目", "2行目", "3行目"],
-    picks: [{ title: "サンプル記事", link: "https://example.com/a", feedName: "TestFeed", reason: "重要だから" }],
     categories: [
       {
         category: "開発・プログラミング",
-        articles: [
-          { title: "サンプル記事", link: "https://example.com/a", feedName: "TestFeed", gist: "一行あらすじ" },
+        picks: [
+          {
+            title: "サンプル記事",
+            link: "https://example.com/a",
+            feedName: "TestFeed",
+            reason: "重要だから",
+            summary: "要約文。",
+          },
         ],
+        others: [{ title: "その他記事", link: "https://example.com/b", feedName: "TestFeed", gist: "一行あらすじ" }],
       },
     ],
   });
@@ -49,6 +67,5 @@ test("buildDigestPayload: digestがnullの場合はhasNewArticles: falseかつ�
 
   assert.equal(payload.hasNewArticles, false);
   assert.deepEqual(payload.threeLines, []);
-  assert.deepEqual(payload.picks, []);
   assert.deepEqual(payload.categories, []);
 });

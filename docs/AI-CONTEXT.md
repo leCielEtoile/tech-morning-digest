@@ -44,13 +44,14 @@ src/pages/archive/[date].astro → src/components/DigestBody.astro, src/layouts/
 - **配色**: `--paper`(背景)・`--ink`(本文)・`--ink-muted`(メタ情報)・`--rule`(罫線)・`--signal`(アクセント、この1色のみ)。ライト/ダーク両方でWCAG AA(4.5:1以上)を計算済み。**新しい色を追加する前に、まず`--signal`一色という制約を崩さなくて済まないか検討すること**(意図的な設計判断)。
 - **フォント**: 和文本文はシステムフォント(Webフォント負荷を避ける判断)。見出し・日付・カテゴリラベルなど欧文/数字要素のみ`@fontsource/space-grotesk`(見出し)・`@fontsource/jetbrains-mono`(メタ情報)のラテン文字サブセット(`latin-*.css`)を自己ホスト。
 - **重要な罠**: `global.css`はAstroのスコープ付き`<style>`ブロックではなく素のグローバルCSSとしてインポートしているため、**`:global()`疑似クラスは無効**(黙って無視される)。`.digest-content`配下のセレクタは全て`:global()`なしのプレーンなセレクタで書くこと。
-- **ダイジェスト本文のスタイリングは実クラスベース**(2026-08-05変更): 旧来はGemini出力Markdownの見出し出現順に依存する`h2:nth-of-type()`セレクタだったが、構造化JSON出力への移行に伴い`DigestBody.astro`が`.three-lines`(今日の3行)・`.picks-heading`/`.picks-list`(Today's Pick、シグネチャー要素)・`.category-list`(カテゴリ別)を直接テンプレートで出し分けるようになったため、CSSも実クラス名を直接セレクタにしている。順序依存の脆さは解消済み。
+- **ダイジェスト本文のスタイリングは実クラスベース**(2026-08-05変更): 旧来はGemini出力Markdownの見出し出現順に依存する`h2:nth-of-type()`セレクタだったが、構造化JSON出力への移行に伴い`DigestBody.astro`が`.three-lines`(今日の3行)・`.category-tabs`(カテゴリタブ)・`.picks-list`(カテゴリごとの注目記事)・`.category-list`(その他記事)を直接テンプレートで出し分けるようになったため、CSSも実クラス名を直接セレクタにしている。順序依存の脆さは解消済み。
+- **カテゴリタブ**(2026-09-13変更): 全体で1本だった「Today's Pick」(`.picks-heading`)を廃止し、カテゴリごとに`picks`(注目記事、理由+要約付き)/`others`(その他記事、一行あらすじ)を出し分ける構成にした。`.category-tabs`はページ内リンクの`<nav>`で、`DigestBody.astro`内の`<script>`(vanilla JS)がクリック時に対象`.category-section`以外を`hidden`にしてタブ切り替えの見た目にする。JS無効環境ではリンク先へスクロールするだけの縦一列表示にフォールバックする(プログレッシブエンハンスメント)。
 - **各ページの実質的なh1**: `DigestBody.astro`が日付(`.digest-date`)を`<h1>`として描画する。構造化データへの移行でGemini生成の定型文h1自体が存在しなくなったため、非表示化のハックは不要になったが、日付をh1とする構造自体は踏襲している。ページに新しい見出し構造を足す場合、h1が二重にならないよう注意すること。
 
 `digests-loader.ts`の設計(2026-08-05のコードレビューで修正): 各日の取得(`loadOneDay`)は取得失敗・JSON不正・スキーマ不一致のいずれでも例外を投げずnullを返す。取得自体は`Promise.all`で並行実行する。**1日分の異常でビルド全体を失敗させないという設計意図を壊さないよう、ここに`try/catch`なしの`JSON.parse`や素のawaitループを書き足さないこと。**
 
 - ビルド時、`digestsLoader`がR2から直近14日分(`ARCHIVE_DAYS`)の`{date}.json`を取得し、`digests`コンテンツコレクションとして公開する。存在しない日(404)はスキップし、ビルド全体は失敗させない。不正な形式のJSONも同様にスキップ(warn ログを出す)。
-- **Markdownレンダリングは廃止**(2026-08-05): R2のJSONペイロード自体が構造化データ(`threeLines`/`picks`/`categories`)なので、`renderMarkdown`ヘルパーや`render(entry)`/`<Content />`は使わない。`DigestBody.astro`が`entry.data`のフィールドを直接テンプレートに埋め込んで描画する。
+- **Markdownレンダリングは廃止**(2026-08-05): R2のJSONペイロード自体が構造化データ(`threeLines`/`categories[].picks`・`categories[].others`)なので、`renderMarkdown`ヘルパーや`render(entry)`/`<Content />`は使わない。`DigestBody.astro`が`entry.data`のフィールドを直接テンプレートに埋め込んで描画する。
 
 ## 主要な型
 
@@ -79,10 +80,14 @@ type ReadState = Record<string, string>; // guidHash(sha256) -> 最終既読日�
 // apps/backend/src/ai/gemini-client.ts (Geminiの構造化出力をパースした後の結果)
 interface GeminiDigestResult {
   threeLines: string[];
-  picks: { article: Article; reason: string }[];
-  categories: { category: Category; articles: { article: Article; gist: string }[] }[]; // 空カテゴリはフィルタ済み、CATEGORY_ORDER順
+  categories: {
+    category: Category;
+    picks: { article: Article; reason: string; summary: string }[];   // カテゴリごとに0〜3件
+    others: { article: Article; gist: string }[];
+  }[]; // 空カテゴリ(picks・othersとも0件)はフィルタ済み、CATEGORY_ORDER順
 }
-// gist: 記事内容を一行(30〜50文字程度)で要約したあらすじ。Geminiが記事のsummaryから生成する(2026-08-06追加)。
+// summary: 記事内容の要約(3〜6文程度)。reason: 選定理由(1文)。gist: 一行あらすじ(30〜50文字程度)。
+// いずれもGeminiが記事のsummaryから生成する(2026-09-13変更: 全体picksを廃止しカテゴリ別picks/othersに再構成)。
 
 // apps/backend/src/digest/digest-payload.ts (= apps/frontend/src/lib/digests-loader.ts の DigestPayload と一致させること)
 interface DigestPayload {
@@ -90,11 +95,16 @@ interface DigestPayload {
   generatedAt: string;   // ISO8601
   hasNewArticles: boolean;
   threeLines: string[];                                                 // 新着なしの場合は空配列
-  picks: { title: string; link: string; feedName: string; reason: string }[];
-  categories: { category: Category; articles: { title: string; link: string; feedName: string; gist: string }[] }[];
+  categories: {
+    category: Category;
+    picks: { title: string; link: string; feedName: string; reason: string; summary: string }[];
+    others: { title: string; link: string; feedName: string; gist: string }[];
+  }[];
 }
 // 2026-08-05変更: markdown: string を廃止し、構造化フィールドに置き換えた(spec.md 5章)。
 // title/link/feedNameはGeminiの出力ではなく、バックエンドが持つArticleデータから復元したもの。
+// 2026-09-13変更: 全体からの picks を廃止し、カテゴリごとに picks(要約付き注目記事)/others(一行あらすじ)
+// を持つ構造に変更した。
 ```
 
 ## 実装上の重要な不変条件

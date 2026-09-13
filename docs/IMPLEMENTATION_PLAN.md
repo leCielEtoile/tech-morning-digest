@@ -1,5 +1,7 @@
 # Tech Morning Digest — 実装計画(AI実装担当者向け)
 
+> **本書は初期バックエンド実装時(GitHub Actions + `state` ブランチ運用)の計画記録です。** 現行アーキテクチャ(定期実行・生成処理・既読state)は [`docs/README.md`](./README.md) の「デプロイ構成(Cloudflare一本化)」および [`docs/AI-CONTEXT.md`](./AI-CONTEXT.md) を参照してください。
+
 このドキュメントは `spec.md` の内容を実装可能な単位に分解したものです。実装を開始するAI(Claude Code)は、まず `spec.md` を通読してから本計画に従って進めること。**spec.mdと本計画が矛盾する場合はspec.mdを正とし、疑問があればユーザーに確認する。**
 
 各Phaseは独立してテスト・レビュー可能な単位に分割してある。Phase番号順に進めることを推奨するが、依存関係がなければ並行して着手してよい。

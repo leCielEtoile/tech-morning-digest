@@ -1,12 +1,33 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import type { R2Config } from "../publish/r2-client.js";
 import {
   computeGuidHash,
   filterNewArticles,
+  loadReadState,
   markAsRead,
   pruneReadState,
+  saveReadState,
   type ReadState,
 } from "./read-state.js";
+
+const R2: R2Config = {
+  accountId: "acc",
+  accessKeyId: "AKIA_TEST",
+  secretAccessKey: "secret_test",
+  bucketName: "bucket",
+};
+
+function mockFetch(handler: (req: Request) => Response | Promise<Response>): () => void {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: Request | URL | string, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(input, init);
+    return handler(req);
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = original;
+  };
+}
 
 test("computeGuidHash: 同じfeedName+guidは同じハッシュ、異なれば異なるハッシュになる", () => {
   const a = computeGuidHash("FeedA", "guid-1");
@@ -68,4 +89,50 @@ test("pruneReadState: 不正な日時文字列のエントリは安全に除去�
   const pruned = pruneReadState(state, now);
 
   assert.deepEqual(pruned, {});
+});
+
+test("loadReadState: R2にオブジェクトが無ければ空stateを返す", async () => {
+  const restore = mockFetch(() => new Response("", { status: 404 }));
+  try {
+    assert.deepEqual(await loadReadState(R2), {});
+  } finally {
+    restore();
+  }
+});
+
+test("loadReadState: 保存済みJSONをReadStateとして返す", async () => {
+  const stored = { [computeGuidHash("FeedA", "guid-1")]: "2026-09-01T00:00:00.000Z" };
+  const restore = mockFetch(() => new Response(JSON.stringify(stored), { status: 200 }));
+  try {
+    assert.deepEqual(await loadReadState(R2), stored);
+  } finally {
+    restore();
+  }
+});
+
+test("loadReadState: 配列など不正な形式はthrowする", async () => {
+  const restore = mockFetch(() => new Response("[1,2,3]", { status: 200 }));
+  try {
+    await assert.rejects(() => loadReadState(R2));
+  } finally {
+    restore();
+  }
+});
+
+test("saveReadState: state/read-guids.json へ整形済みJSONをPUTする", async () => {
+  let captured: Request | undefined;
+  const restore = mockFetch(async (req) => {
+    captured = req;
+    return new Response("", { status: 200 });
+  });
+  try {
+    const state: ReadState = { abc: "2026-09-01T00:00:00.000Z" };
+    await saveReadState(R2, state);
+    assert.ok(captured);
+    assert.equal(captured.method, "PUT");
+    assert.match(captured.url, /\/bucket\/state\/read-guids\.json$/);
+    assert.deepEqual(JSON.parse(await captured.text()), state);
+  } finally {
+    restore();
+  }
 });

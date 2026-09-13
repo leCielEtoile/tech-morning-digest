@@ -2,8 +2,17 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tech-morning-digest",
   // ビルド日ごとに更新する(spec.md参照)
-  "compatibility_date": "2026-08-02",
+  "compatibility_date": "2026-09-11",
+  "main": "worker/index.ts",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    // UTC。23:30 = JST 08:30(前日) にビルド起動、02:00 に当日分の生成結果を確認
+    "crons": ["30 23 * * *", "0 2 * * *"]
   }
 }

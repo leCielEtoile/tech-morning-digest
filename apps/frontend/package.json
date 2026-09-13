@@ -12,6 +12,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro check",
+    "typecheck:worker": "tsc -p worker/tsconfig.json",
+    "test": "tsx --test worker/**/*.test.ts",
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
@@ -23,6 +25,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
+    "@cloudflare/workers-types": "5.20260908.1",
+    "tsx": "4.23.1",
     "typescript": "6.0.3",
     "wrangler": "4.118.0"
   }

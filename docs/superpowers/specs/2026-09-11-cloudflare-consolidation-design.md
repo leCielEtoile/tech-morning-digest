@@ -62,7 +62,8 @@ Cron Trigger 02:00 UTC(同フロントWorker、ウォッチドッグ)
 なので、その `wrangler.jsonc` に `main`(`scheduled()` のみ)と `triggers.crons` を追加し、
 cron コードを通常のフロントビルドで一緒にデプロイする。
 
-**フロントの自動ビルドは Deploy Hook のみに限定する**(下記 決定事項5)。
+**フロントの自動ビルドは Deploy Hook のみに限定する**(下記 決定事項5。
+2026-09-13 追記: 実装時に不可能と判明し、方針変更。決定事項5参照)。
 GitHub Actions・`state` ブランチ・GitHub Secrets は不要になる。
 
 ## コンポーネント設計
@@ -219,20 +220,26 @@ R2 書き込み成功後に `astro build` / `wrangler deploy` が失敗した場
 3. **スケジューラの置き場所**: 専用Workerを作らず、既存フロントWorker(Static Assets)に
    `scheduled()` ハンドラと cron を同居させる。新規デプロイ対象ゼロ。
 4. **生成処理の実行場所**: 既存フロントの Workers Builds プロジェクトに統合。
-5. **フロントの自動ビルドは Deploy Hook のみに限定する**。
-   - 理由: git push でもビルドが走ると、無関係なコミット1つでも生成処理(Gemini呼び出し・
+5. **フロントの自動ビルドは Deploy Hook のみに限定する**(当初案。**2026-09-13 追記で撤回**)。
+   - 当初の理由: git push でもビルドが走ると、無関係なコミット1つでも生成処理(Gemini呼び出し・
      R2/state 書き換え・記事の既読化)が実行され、同日中に複数回ダイジェストが再生成されうる。
-   - Workers Builds の設定で「push時の自動デプロイ」を無効化し、トリガーを Deploy Hook に一本化する
-     (実装時に無効化の具体手段を確認: プロジェクト設定のブランチ制御 / 自動デプロイのオフ)。
-   - トレードオフ: フロントのコード変更(CSS・レイアウト等)は翌朝の日次ビルドで反映される。
-     即時反映したい場合は Deploy Hook を手動 POST するか、ローカルで
-     `pnpm --filter @rss-summary/frontend deploy` する。個人用途のため許容。
+   - **2026-09-13 実装時の最終判断**: Cloudflare 公式ドキュメント(Build branches / Deploy Hooks)を
+     確認した結果、Workers Builds には「push起因の自動ビルドを無効化する」設定が存在しないと判明した。
+     プロダクションブランチへの push は常にビルドを起動する仕様。
+     ダミーブランチをプロダクションブランチにして Deploy Hook だけ main を指す回避策も検討したが、
+     Workers Builds でこの構成が実際に動作するかは未検証のため採用せず、
+     **main への push でも自動ビルドを許容する**方針に変更した。
+   - 緩和策: 無関係な変更での誤発火を減らすため、Build Watch Paths の除外パスに
+     `docs/**`・`.superpowers/**` を設定した(API経由で設定。詳細は `docs/README.md`「デプロイ構成」参照)。
+   - トレードオフ: フロントのコード変更(CSS・レイアウト等)を含む push は生成処理を伴うビルドが走る。
+     個人プロジェクトで push 頻度が低いため許容する判断とした。
 
 ## カットオーバー手順(順序厳守)
 
 このPRを main にマージすると新しい build command でビルドが走るため、**マージ前に 1〜4 を完了させる**。
 
-1. Workers Builds のプロジェクト設定変更(Root directory・Build command・Deploy command、決定事項5の自動ビルド無効化)
+1. Workers Builds のプロジェクト設定変更(Root directory・Build command・Deploy command)。
+   ブランチコントロールは変更しない(決定事項5参照、push起因ビルドは許容する)
 2. ビルド時変数の登録(上記 b)
 3. フロントWorker のランタイム変数の登録(上記 a、6項目)
 4. 既読state初回移行: `state` ブランチの `read-guids.json` を
@@ -259,7 +266,7 @@ R2 書き込み成功後に `astro build` / `wrangler deploy` が失敗した場
 
 - `.github/workflows/backend-daily-digest.yml` はgit履歴から復元可能。GitHub Secrets を再設定。
 - `apps/frontend/wrangler.jsonc` から `main` と `triggers` を外して再デプロイ + Workers Builds の
-  ビルド設定を元(`apps/frontend` ルート、astro buildのみ、自動ビルド再有効化)に戻す。
+  ビルド設定を元(`apps/frontend` ルート、build=`pnpm build`、deploy=`npx wrangler deploy`)に戻す。
 - **state の乖離に注意**: カットオーバー後 `state` ブランチは凍結され R2 が最新になる。
   数日以内に戻すか、戻す前に R2 の `state/read-guids.json` を `state` ブランチへ再同期する
   (しないと GH Actions が古い state を読んで数日分を再通知する)。

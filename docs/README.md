@@ -38,7 +38,7 @@ rss-summary/
 - Build command:
   `pnpm install --frozen-lockfile && pnpm --filter @rss-summary/backend start && pnpm --filter @rss-summary/frontend build`
 - Deploy command: `pnpm --filter @rss-summary/frontend exec wrangler deploy`
-- 自動ビルドのトリガー: **Deploy Hook のみ**(git push での自動デプロイは無効化する)
+- 自動ビルドのトリガー: **main への push と Deploy Hook の両方**。Cloudflare には「push では自動ビルドしない」設定が存在しないため(2026-09時点、公式ドキュメントで確認)、main への push でも生成処理を含むビルドが走る。無関係な変更での誤発火を減らすため、Build Watch Paths の除外パスに `docs/**`・`.superpowers/**` を設定済み(実コード・ロックファイルへの push は生成処理を伴う前提)
 
 ### ビルド時変数(Settings → Build → Variables and Secrets)
 
@@ -95,7 +95,7 @@ pnpm --filter @rss-summary/frontend exec wrangler r2 bucket lifecycle add <BUCKE
 
 - `git revert` で `.github/workflows/backend-daily-digest.yml` を復活させ、GitHub Secrets を再登録。
 - `apps/frontend/wrangler.jsonc` から `main` と `triggers` を外して再デプロイ。
-- Workers Builds のビルド設定を元(Root=`apps/frontend`、build=astroのみ、自動ビルド再有効化)に戻す。
+- Workers Builds のビルド設定を元(Root=`apps/frontend`、build=`pnpm build`、deploy=`npx wrangler deploy`)に戻す。
 - **state 乖離注意**: カットオーバー後は R2 が最新。数日以内に戻すか、戻す前に R2 の `state/read-guids.json` を `state` ブランチへ書き戻す。
 
 ## バックエンドのローカル開発
@@ -133,7 +133,7 @@ pnpm --filter @rss-summary/backend start        # 実際に生成処理を実行
 Workers Builds プロジェクトの設定・変数登録・カットオーバー手順は上記「デプロイ構成(Cloudflare一本化)」にまとめている。ここでは frontend 固有の補足のみ:
 
 - `apps/frontend/wrangler.jsonc` の `main`(`worker/index.ts`)と `triggers.crons`(`30 23 * * *` / `0 2 * * *`、いずれもUTC)で定期実行を定義している。`wrangler deploy` 時に cron が登録される。
-- Deploy Hook で毎日ビルドが走るため Build Watch Paths での絞り込みは行わない(git push 自動ビルドは無効化)。
+- main への push でも自動ビルドが走る(push起因ビルドを無効化する設定はCloudflareに存在しない)。無関係な変更まで生成処理が走らないよう、Build Watch Paths の除外パスに `docs/**`・`.superpowers/**` を設定している。
 - ドメインは当面 Cloudflare が割り当てる `workers.dev` サブドメインを使う。コード側にドメインをハードコードしていないため、独自ドメインへの変更は `wrangler.jsonc` とダッシュボード設定のみで対応できる。
 
 ### フロントエンドのローカル開発
@@ -160,3 +160,4 @@ pnpm --filter @rss-summary/frontend dev              # astro dev(要R2環境変�
 - 生成ジョブ(フロントWorkerの`scheduled()` + Workers Builds)が30日以上完全に停止すると、R2の`state/read-guids.json`がライフサイクルルールで削除され、復帰時に全記事が新着扱いになる。`MAX_ITEMS_PER_FEED=50`で各フィード最新50件までに限定されるため影響は有限(Cloudflare一本化前の「60日でscheduled workflow自動無効化」リスクと同クラス、spec.md 9章)
 - R2上のダイジェストJSONは30日でライフサイクルルールにより自動削除される。フロントエンドでの表示範囲(直近2週間)より長く保持しているのは、将来のアーカイブ機能拡張の余地を残すため
 - 定期実行はフロントWorkerの`scheduled()`(Cron Triggers)。Pages 単体ではスケジュール実行できず(Cron Triggers は Workers 専用)、生成結果のR2欠損はウォッチドッグcron(`0 2 * * *` UTC)が`ALERT_WEBHOOK_URL`へ通知する
+- main への push は(`docs/**`・`.superpowers/**` 配下のみの変更を除き)生成処理を含むビルドを起動する。Gemini呼び出し・R2/state書き換えが伴うため、コードに影響しない修正はdocs配下に留めるか、この挙動を許容すること

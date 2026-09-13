@@ -8,5 +8,16 @@ allowBuilds:
 
 # miniflare(wrangler経由)がundici@7.28.0を固定指定しているが、7.29.0未満に
 # 既知の脆弱性(GHSA、Dependabot検出)があるため上書きする(2026-08-06)。
+#
+# 以下5件はすべて astro / @astrojs/check / wrangler の間接依存で、Dependabotが検出した
+# 既知の脆弱性(2026-09-13時点、alert #7〜#19)。パッチ済みバージョン以上に固定する。
 overrides:
   undici: "7.29.0"
+  # 依存元(astro/@astrojs/check)が想定するメジャーバージョン内でパッチ版に固定する。
+  # 上限を付けないと更に新しいメジャーへ飛んでしまい、意図しない破壊的変更を持ち込む
+  # (実際に js-yaml 5.x・fast-uri 4.x・nanoid 6.x へ飛ぶ挙動を確認済み)。
+  js-yaml: ">=4.3.2 <5.0.0"
+  sharp: ">=0.35.4 <0.36.0"
+  svgo: ">=4.1.0 <5.0.0"
+  fast-uri: ">=3.1.6 <4.0.0"
+  nanoid: ">=3.3.18 <4.0.0"

@@ -44,7 +44,8 @@ src/pages/archive/[date].astro → src/components/DigestBody.astro, src/layouts/
 - **配色**: `--paper`(背景)・`--ink`(本文)・`--ink-muted`(メタ情報)・`--rule`(罫線)・`--signal`(アクセント、この1色のみ)。ライト/ダーク両方でWCAG AA(4.5:1以上)を計算済み。**新しい色を追加する前に、まず`--signal`一色という制約を崩さなくて済まないか検討すること**(意図的な設計判断)。
 - **フォント**: 和文本文はシステムフォント(Webフォント負荷を避ける判断)。見出し・日付・カテゴリラベルなど欧文/数字要素のみ`@fontsource/space-grotesk`(見出し)・`@fontsource/jetbrains-mono`(メタ情報)のラテン文字サブセット(`latin-*.css`)を自己ホスト。
 - **重要な罠**: `global.css`はAstroのスコープ付き`<style>`ブロックではなく素のグローバルCSSとしてインポートしているため、**`:global()`疑似クラスは無効**(黙って無視される)。`.digest-content`配下のセレクタは全て`:global()`なしのプレーンなセレクタで書くこと。
-- **ダイジェスト本文のスタイリングは実クラスベース**(2026-08-05変更): 旧来はGemini出力Markdownの見出し出現順に依存する`h2:nth-of-type()`セレクタだったが、構造化JSON出力への移行に伴い`DigestBody.astro`が`.three-lines`(今日の3行)・`.picks-heading`/`.picks-list`(Today's Pick、シグネチャー要素)・`.category-list`(カテゴリ別)を直接テンプレートで出し分けるようになったため、CSSも実クラス名を直接セレクタにしている。順序依存の脆さは解消済み。
+- **ダイジェスト本文のスタイリングは実クラスベース**(2026-08-05変更): 旧来はGemini出力Markdownの見出し出現順に依存する`h2:nth-of-type()`セレクタだったが、構造化JSON出力への移行に伴い`DigestBody.astro`が`.three-lines`(今日の3行)・`.category-tabs`(カテゴリタブ)・`.picks-list`(カテゴリごとの注目記事)・`.category-list`(その他記事)を直接テンプレートで出し分けるようになったため、CSSも実クラス名を直接セレクタにしている。順序依存の脆さは解消済み。
+- **カテゴリタブ**(2026-09-13変更): 全体で1本だった「Today's Pick」(`.picks-heading`)を廃止し、カテゴリごとに`picks`(注目記事、理由+要約付き)/`others`(その他記事、一行あらすじ)を出し分ける構成にした。`.category-tabs`はページ内リンクの`<nav>`で、`DigestBody.astro`内の`<script>`(vanilla JS)がクリック時に対象`.category-section`以外を`hidden`にしてタブ切り替えの見た目にする。JS無効環境ではリンク先へスクロールするだけの縦一列表示にフォールバックする(プログレッシブエンハンスメント)。
 - **各ページの実質的なh1**: `DigestBody.astro`が日付(`.digest-date`)を`<h1>`として描画する。構造化データへの移行でGemini生成の定型文h1自体が存在しなくなったため、非表示化のハックは不要になったが、日付をh1とする構造自体は踏襲している。ページに新しい見出し構造を足す場合、h1が二重にならないよう注意すること。
 
 `digests-loader.ts`の設計(2026-08-05のコードレビューで修正): 各日の取得(`loadOneDay`)は取得失敗・JSON不正・スキーマ不一致のいずれでも例外を投げずnullを返す。取得自体は`Promise.all`で並行実行する。**1日分の異常でビルド全体を失敗させないという設計意図を壊さないよう、ここに`try/catch`なしの`JSON.parse`や素のawaitループを書き足さないこと。**

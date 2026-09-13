@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # pnpm workspaceモノレポ。ロックファイルはリポジトリルートに1つだけなので、
+  # ルートを1エントリだけ指定する(apps/*ごとに分けると、ワークスペースを認識できず
+  # package.jsonのみ更新してロックファイルを更新しない重複PRが生成される)。
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

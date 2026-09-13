@@ -27,7 +27,7 @@
     "@astrojs/check": "0.9.10",
     "@cloudflare/workers-types": "5.20260908.1",
     "tsx": "4.23.13",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "wrangler": "4.118.0"
   }
 }

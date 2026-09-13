@@ -20,7 +20,7 @@ rss-summary/
   → Deploy Hook を POST → Workers Builds が起動
   → [ビルド内] backend 生成処理:
       RSSフィード取得(17件) → 既読(R2の state/read-guids.json)と突き合わせ → 新着抽出
-      → Gemini APIで構造化JSON(今日の3行・Today's Pick・カテゴリ別記事)を生成
+      → Gemini APIで構造化JSON(今日の3行・カテゴリ別の注目記事・カテゴリ別記事一覧)を生成
       → Cloudflare R2へアップロード({date}.json)、既読stateを state/read-guids.json へ上書き
   → [ビルド内] astro build がR2から取得しHTML化 → wrangler deploy で Workers Static Assets へ配信
   → もう1本の cron(0 2 * * * UTC)が当日分 {date}.json のR2欠損を監視し、欠損なら Webhook 通知
@@ -120,7 +120,7 @@ pnpm --filter @rss-summary/backend start        # 実際に生成処理を実行
   → backend 生成処理を実行(RSS取得 → Gemini要約 → R2へ {date}.json と state/read-guids.json)
   → astro build 実行時、R2から直近14日分の {date}.json を取得
     (存在しない日はスキップ。ビルド全体は失敗させない)
-  → 構造化JSON(threeLines/picks/categories)をDigestBody.astroが直接テンプレートに埋め込みHTML化
+  → 構造化JSON(threeLines/categories[].picks・others)をDigestBody.astroが直接テンプレートに埋め込みHTML化
   → wrangler deploy でWorkers Static Assetsへデプロイ
 ```
 

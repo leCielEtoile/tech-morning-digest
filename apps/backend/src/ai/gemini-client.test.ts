@@ -89,3 +89,31 @@ test("buildDigestResult: picks・othersがともに空のカテゴリは結果�
 
   assert.deepEqual(result.categories, []);
 });
+
+test("buildDigestResult: 同一articleIdが複数のcategoryPicksに現れても最初の1件だけがpicksに入る", () => {
+  const articles = [makeArticle("A")];
+  const idToArticle = new Map<number, Article>(articles.map((article, id) => [id, article]));
+
+  const result = buildDigestResult(
+    {
+      threeLines: [],
+      categoryPicks: [
+        { articleId: 0, category: "クラウド・インフラ", reason: "理由1", summary: "要約1" },
+        { articleId: 0, category: "開発・プログラミング", reason: "理由2", summary: "要約2" },
+      ],
+      categorizedArticles: [{ articleId: 0, category: "クラウド・インフラ", gist: "あらすじ" }],
+    },
+    idToArticle,
+  );
+
+  assert.deepEqual(result, {
+    threeLines: [],
+    categories: [
+      {
+        category: "クラウド・インフラ",
+        picks: [{ article: articles[0], reason: "理由1", summary: "要約1" }],
+        others: [],
+      },
+    ],
+  });
+});

@@ -23,13 +23,15 @@ const dateLabel = formatJstDateLabel(data.date);
 					))}
 				</ol>
 
-				<nav class="category-tabs" aria-label="カテゴリ">
-					{data.categories.map((category, i) => (
-						<a href={`#category-${i}`} class="category-tabs__item" data-category-tab>
-							{category.category}
-						</a>
-					))}
-				</nav>
+				{data.categories.length > 0 && (
+					<nav class="category-tabs" aria-label="カテゴリ">
+						{data.categories.map((category, i) => (
+							<a href={`#category-${i}`} class="category-tabs__item" data-category-tab>
+								{category.category}
+							</a>
+						))}
+					</nav>
+				)}
 
 				{data.categories.map((category, i) => (
 					<section id={`category-${i}`} class="category-section" data-category-section>

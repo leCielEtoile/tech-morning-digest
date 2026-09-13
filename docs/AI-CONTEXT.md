@@ -51,7 +51,7 @@ src/pages/archive/[date].astro → src/components/DigestBody.astro, src/layouts/
 `digests-loader.ts`の設計(2026-08-05のコードレビューで修正): 各日の取得(`loadOneDay`)は取得失敗・JSON不正・スキーマ不一致のいずれでも例外を投げずnullを返す。取得自体は`Promise.all`で並行実行する。**1日分の異常でビルド全体を失敗させないという設計意図を壊さないよう、ここに`try/catch`なしの`JSON.parse`や素のawaitループを書き足さないこと。**
 
 - ビルド時、`digestsLoader`がR2から直近14日分(`ARCHIVE_DAYS`)の`{date}.json`を取得し、`digests`コンテンツコレクションとして公開する。存在しない日(404)はスキップし、ビルド全体は失敗させない。不正な形式のJSONも同様にスキップ(warn ログを出す)。
-- **Markdownレンダリングは廃止**(2026-08-05): R2のJSONペイロード自体が構造化データ(`threeLines`/`picks`/`categories`)なので、`renderMarkdown`ヘルパーや`render(entry)`/`<Content />`は使わない。`DigestBody.astro`が`entry.data`のフィールドを直接テンプレートに埋め込んで描画する。
+- **Markdownレンダリングは廃止**(2026-08-05): R2のJSONペイロード自体が構造化データ(`threeLines`/`categories[].picks`・`categories[].others`)なので、`renderMarkdown`ヘルパーや`render(entry)`/`<Content />`は使わない。`DigestBody.astro`が`entry.data`のフィールドを直接テンプレートに埋め込んで描画する。
 
 ## 主要な型
 

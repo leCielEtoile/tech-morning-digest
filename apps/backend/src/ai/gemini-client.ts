@@ -171,6 +171,7 @@ export function buildDigestResult(raw: RawGeminiDigest, idToArticle: Map<number,
   // よう、カテゴリを問わずグローバルに除外する(Geminiの出力矛盾に対する防御)。
   const pickedArticleIds = new Set<number>();
   for (const pick of raw.categoryPicks) {
+    if (pickedArticleIds.has(pick.articleId)) continue; // 同一articleIdが複数カテゴリのpicksに二重掲載されるのを防ぐ
     const article = idToArticle.get(pick.articleId);
     if (!article) continue; // 存在しないarticleIdを指した場合はスキップ(壊れたダイジェストより一部欠けたダイジェストの方がまし)
     if (!CATEGORY_ORDER.includes(pick.category as Category)) continue; // enumで縛っていても念のため防御

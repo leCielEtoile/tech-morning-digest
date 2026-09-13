@@ -79,10 +79,14 @@ type ReadState = Record<string, string>; // guidHash(sha256) -> 最終既読日�
 // apps/backend/src/ai/gemini-client.ts (Geminiの構造化出力をパースした後の結果)
 interface GeminiDigestResult {
   threeLines: string[];
-  picks: { article: Article; reason: string }[];
-  categories: { category: Category; articles: { article: Article; gist: string }[] }[]; // 空カテゴリはフィルタ済み、CATEGORY_ORDER順
+  categories: {
+    category: Category;
+    picks: { article: Article; reason: string; summary: string }[];   // カテゴリごとに0〜3件
+    others: { article: Article; gist: string }[];
+  }[]; // 空カテゴリ(picks・othersとも0件)はフィルタ済み、CATEGORY_ORDER順
 }
-// gist: 記事内容を一行(30〜50文字程度)で要約したあらすじ。Geminiが記事のsummaryから生成する(2026-08-06追加)。
+// summary: 記事内容の要約(3〜6文程度)。reason: 選定理由(1文)。gist: 一行あらすじ(30〜50文字程度)。
+// いずれもGeminiが記事のsummaryから生成する(2026-09-13変更: 全体picksを廃止しカテゴリ別picks/othersに再構成)。
 
 // apps/backend/src/digest/digest-payload.ts (= apps/frontend/src/lib/digests-loader.ts の DigestPayload と一致させること)
 interface DigestPayload {
@@ -90,11 +94,16 @@ interface DigestPayload {
   generatedAt: string;   // ISO8601
   hasNewArticles: boolean;
   threeLines: string[];                                                 // 新着なしの場合は空配列
-  picks: { title: string; link: string; feedName: string; reason: string }[];
-  categories: { category: Category; articles: { title: string; link: string; feedName: string; gist: string }[] }[];
+  categories: {
+    category: Category;
+    picks: { title: string; link: string; feedName: string; reason: string; summary: string }[];
+    others: { title: string; link: string; feedName: string; gist: string }[];
+  }[];
 }
 // 2026-08-05変更: markdown: string を廃止し、構造化フィールドに置き換えた(spec.md 5章)。
 // title/link/feedNameはGeminiの出力ではなく、バックエンドが持つArticleデータから復元したもの。
+// 2026-09-13変更: 全体からの picks を廃止し、カテゴリごとに picks(要約付き注目記事)/others(一行あらすじ)
+// を持つ構造に変更した。
 ```
 
 ## 実装上の重要な不変条件

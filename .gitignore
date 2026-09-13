@@ -9,3 +9,5 @@ dist/
 .DS_Store
 *.log
 .claude/skills/
+.superpowers/
+docs/superpowers/

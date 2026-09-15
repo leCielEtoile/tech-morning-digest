@@ -2,7 +2,7 @@ import { generateDigestData } from "./ai/gemini-client.js";
 import { FEEDS } from "./config/feeds.js";
 import { buildDigestPayload } from "./digest/digest-payload.js";
 import { fetchAllFeeds } from "./fetch/feed-fetcher.js";
-import { uploadDigestJson, type R2Config } from "./publish/r2-client.js";
+import { getR2Text, uploadDigestJson, type R2Config } from "./publish/r2-client.js";
 import {
   filterNewArticles,
   loadReadState,
@@ -47,6 +47,18 @@ async function main(): Promise<void> {
   const objectKey = `${dateLabel}.json`;
 
   console.log(`[digest] 開始: ${now.toISOString()} (JST日付: ${dateLabel})`);
+
+  // mainブランチへのpush(deploy_hook以外の経路)でもWorkers Buildsが起動し、
+  // 1日に複数回このビルドが走ることがある(Cloudflare側の設定では起動元をpush/
+  // deploy_hookで区別できないため、アプリ側で冪等性を担保する)。2回目以降の実行は
+  // 既読状態が前回の実行で消費済みのため新着が先細りし、当日分の内容を薄い内容で
+  // 上書きしてしまう。本日分が既にR2にあれば生成をスキップし、ビルド(既存データでの
+  // サイト再デプロイ)のみ行う。
+  const existing = await getR2Text(config.r2, objectKey);
+  if (existing !== null) {
+    console.log(`[digest] ${objectKey} は生成済みのためスキップします`);
+    return;
+  }
 
   console.log("[digest] R2から既読状態を読み込み中...");
   const state = await loadReadState(config.r2);

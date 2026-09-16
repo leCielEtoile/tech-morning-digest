@@ -11,6 +11,14 @@
   "observability": {
     "enabled": true
   },
+  // 非機微な値のみ宣言する。secrets(DEPLOY_HOOK_URL/ALERT_WEBHOOK_URL/R2_ACCESS_KEY_ID/
+  // R2_SECRET_ACCESS_KEY)はここに書かず、Cloudflareダッシュボード側のWorker secretsとして
+  // 個別管理する(wrangler.jsonc未宣言のままだと、デプロイのたびに消える実害が過去にあったため、
+  // 非機微な値だけでもここで宣言してデプロイのたびに確実に反映されるようにしている)。
+  "vars": {
+    "CLOUDFLARE_ACCOUNT_ID": "9bbe04fcd60cb5aeefafef802bbdc1c5",
+    "R2_BUCKET_NAME": "tech-morning-digest"
+  },
   "triggers": {
     // UTC。23:30 = JST 08:30(前日) にビルド起動、02:00 に当日分の生成結果を確認
     "crons": ["30 23 * * *", "0 2 * * *"]

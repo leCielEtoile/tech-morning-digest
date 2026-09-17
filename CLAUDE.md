@@ -41,6 +41,8 @@ rss-summary/
 
 > **配信について**: フロントWorker(Workers Static Assets)に同居する`scheduled()`ハンドラが、毎朝のcron(`30 23 * * *` UTC)でDeploy HookをPOSTしてWorkers Buildsのビルドを起動します。Workers Buildsは1回のビルドで backend の生成処理(RSSフィード取得 → 既読GUIDと突き合わせ → Gemini要約 → R2へ`{date}.json`と`state/read-guids.json`を書き込み)→ Astro ビルド → `wrangler deploy` を実行します。HTML変換はAstroのビルド時に行います。もう1本のcron(`0 2 * * *` UTC)がウォッチドッグで、当日分の生成結果がR2にあるか確認し、欠損していればDiscord/SlackのWebhookへ通知します。既読GUIDの状態はR2オブジェクト`state/read-guids.json`に保存し、実行のたびに上書きします
 
+> **⚠️ デプロイ後のsecrets確認(重要)**: `apps/frontend`のWorker(`tech-morning-digest`)は、`wrangler.jsonc`に宣言していないsecrets(`DEPLOY_HOOK_URL` / `ALERT_WEBHOOK_URL` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`)をCloudflareダッシュボード側で個別管理している(非機微な`CLOUDFLARE_ACCOUNT_ID`・`R2_BUCKET_NAME`のみ`wrangler.jsonc`の`vars`に宣言済み)。過去にこの4件が消失し、毎晩のcronとwatchdogアラートの両方が無言で機能停止する障害が発生した(2026-09-13〜09-16、原因未特定)。**mainへのマージ・デプロイを伴う変更の後は、`GET /accounts/{account_id}/workers/scripts/tech-morning-digest/settings`の`bindings`に`ASSETS`以外の4件(secret_text型)が揃っているか確認すること。**欠けていれば`.envrc`の値で`wrangler secret put <NAME>`(またはBulk API `PATCH .../secrets-bulk`)で再投入し、必要なら手動でDeploy Hookを一度叩いて当日分の生成が通ることを確認する。
+
 ---
 
 ## 開発環境・ツール

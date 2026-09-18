@@ -19,6 +19,13 @@
     "CLOUDFLARE_ACCOUNT_ID": "9bbe04fcd60cb5aeefafef802bbdc1c5",
     "R2_BUCKET_NAME": "tech-morning-digest"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tech-morning-digest-users",
+      "database_id": "REPLACE_WITH_REAL_DATABASE_ID"
+    }
+  ],
   "triggers": {
     // UTC。23:30 = JST 08:30(前日) にビルド起動、02:00 に当日分の生成結果を確認
     "crons": ["30 23 * * *", "0 2 * * *"]

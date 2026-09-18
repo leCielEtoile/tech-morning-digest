@@ -31,8 +31,24 @@ rss-summary/
 │       │   ├── pages/                  # トップ・アーカイブ一覧・個別ページ
 │       │   ├── components/DigestBody.astro
 │       │   └── layouts/BaseLayout.astro
-│       ├── worker/index.ts             # scheduled()ハンドラ(Deploy Hook起動cron + R2欠損ウォッチドッグcron)
-│       └── wrangler.jsonc              # main=worker/index.ts、triggers.crons 2本(23:30 / 02:00 UTC)
+│       ├── worker/                     # Cloudflare Worker(スケジュール実行・API/認証)
+│       │   ├── index.ts                # scheduled()ハンドラ(Deploy Hook起動cron + R2欠損ウォッチドッグcron) + fetch()ルーター
+│       │   ├── db/                     # D1(users/sessions/preferences/bookmarks/read-state)アクセス層
+│       │   │   ├── users.ts、sessions.ts、preferences.ts、bookmarks.ts、read-state.ts
+│       │   │   └── 各モジュールはテスト込み
+│       │   ├── auth/                   # Google OAuth認証(oauth4webapi利用)
+│       │   │   ├── google-oauth.ts     # token交換・session作成・logout処理
+│       │   │   └── google-oauth.test.ts
+│       │   ├── api/                    # Honoベースのエンドポイント(/api/*)
+│       │   │   ├── router.ts           # ルーティング(Hono。各handlerはFramework非依存のRequest/D1Database受け取り)
+│       │   │   ├── auth-handlers.ts    # POST /api/auth/login/callback、/api/auth/logout
+│       │   │   ├── preferences-handlers.ts # GET/PUT /api/preferences
+│       │   │   ├── bookmarks-handlers.ts # GET/POST/DELETE /api/bookmarks(/:id)
+│       │   │   ├── read-state-handlers.ts # GET/POST /api/read-state
+│       │   │   └── 各ファイルはテスト込み
+│       │   ├── digest-fresh.ts、retry.ts # ユーティリティ(ダイジェスト鮮度判定・リトライ)
+│       │   └── tsconfig.json            # `**/*.ts`で配下全ファイルをカバー
+│       └── wrangler.jsonc              # main=worker/index.ts、triggers.crons 2本(23:30 / 02:00 UTC)、D1バインディング
 ├── packages/
 │   └── shared/               # apps/backend・apps/frontend共通のユーティリティ(@rss-summary/shared)
 ├── spec.md                   # 実装仕様書(要件・設計判断の正)
@@ -40,8 +56,10 @@ rss-summary/
 ```
 
 > **配信について**: フロントWorker(Workers Static Assets)に同居する`scheduled()`ハンドラが、毎朝のcron(`30 23 * * *` UTC)でDeploy HookをPOSTしてWorkers Buildsのビルドを起動します。Workers Buildsは1回のビルドで backend の生成処理(RSSフィード取得 → 既読GUIDと突き合わせ → Gemini要約 → R2へ`{date}.json`と`state/read-guids.json`を書き込み)→ Astro ビルド → `wrangler deploy` を実行します。HTML変換はAstroのビルド時に行います。もう1本のcron(`0 2 * * *` UTC)がウォッチドッグで、当日分の生成結果がR2にあるか確認し、欠損していればDiscord/SlackのWebhookへ通知します。既読GUIDの状態はR2オブジェクト`state/read-guids.json`に保存し、実行のたびに上書きします
+>
+> **API・認証について**: `/api/*`エンドポイントはHonoをルーティングフレームワークとして採用しており、エンドポイント数増加に対応しています。各APIハンドラー(`auth-handlers`・`preferences-handlers`・`bookmarks-handlers`・`read-state-handlers`)は設計上Honoフレームワークに依存しておらず、素の`Request`・`D1Database`のみを受け取り、純粋な処理ロジックとして実装されています。D1バインディング(`env.DB`、データベース名`tech-morning-digest-users`)を使用してセッション・ユーザー・ブックマーク・興味カテゴリ設定・個人既読状態を管理しています。
 
-> **⚠️ デプロイ後のsecrets確認(重要)**: `apps/frontend`のWorker(`tech-morning-digest`)は、`wrangler.jsonc`に宣言していないsecrets(`DEPLOY_HOOK_URL` / `ALERT_WEBHOOK_URL` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`)をCloudflareダッシュボード側で個別管理している(非機微な`CLOUDFLARE_ACCOUNT_ID`・`R2_BUCKET_NAME`のみ`wrangler.jsonc`の`vars`に宣言済み)。過去にこの4件が消失し、毎晩のcronとwatchdogアラートの両方が無言で機能停止する障害が発生した(2026-09-13〜09-16、原因未特定)。**mainへのマージ・デプロイを伴う変更の後は、`GET /accounts/{account_id}/workers/scripts/tech-morning-digest/settings`の`bindings`に`ASSETS`以外の4件(secret_text型)が揃っているか確認すること。**欠けていれば`.envrc`の値で`wrangler secret put <NAME>`(またはBulk API `PATCH .../secrets-bulk`)で再投入し、必要なら手動でDeploy Hookを一度叩いて当日分の生成が通ることを確認する。
+> **⚠️ デプロイ後のsecrets確認(重要)**: `apps/frontend`のWorker(`tech-morning-digest`)は、`wrangler.jsonc`に宣言していないsecrets(`DEPLOY_HOOK_URL` / `ALERT_WEBHOOK_URL` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`)をCloudflareダッシュボード側で個別管理している(非機微な`CLOUDFLARE_ACCOUNT_ID`・`R2_BUCKET_NAME`のみ`wrangler.jsonc`の`vars`に宣言済み)。過去にこの4件(現在は6件)が消失し、毎晩のcronとwatchdogアラートの両方が無言で機能停止する障害が発生した(2026-09-13〜09-16、原因未特定)。**mainへのマージ・デプロイを伴う変更の後は、`GET /accounts/{account_id}/workers/scripts/tech-morning-digest/settings`の`bindings`に`ASSETS`以外の6件(secret_text型)が揃っているか確認すること。**欠けていれば`.envrc`の値で`wrangler secret put <NAME>`(またはBulk API `PATCH .../secrets-bulk`)で再投入し、必要なら手動でDeploy Hookを一度叩いて当日分の生成が通ることを確認する。
 
 ---
 

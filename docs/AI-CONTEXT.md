@@ -107,6 +107,38 @@ interface DigestPayload {
 // を持つ構造に変更した。
 ```
 
+## フロントエンド(`apps/frontend/worker`)の認証・セッション・D1設計
+
+アカウント機能(Google OAuth ログイン・興味カテゴリ・ブックマーク・個人既読状態)の実装で追加された層。
+
+### セッション管理(DB参照型)
+
+- **セッション方式**: JWT ではなく、D1 データベース(`sessions`テーブル)に保存される参照型セッション。各リクエストごとに session ID を Cookie(`session_id`)から読み取り、D1 へ問い合わせしてセッションを検証する(ステートレスではない)
+- **Cookie**: `session_id`(名前固定)、Secure・HttpOnly・SameSite=Strict で設定、有効期限30日
+- **メリット**: JWT トークン漏洩時にサーバー側から即座にセッションを無効化できる、セッション更新時の署名再生成が不要、ユーザー削除・ブロック時の反映が即座。トレードオフとしてスケーリング時の状態管理が必要(本プロジェクトは個人用途のため許容)
+
+### データ最小化ポリシー
+
+- **`users`テーブル**: `id`(PK、Google sub)・`created_at` のみ保存。email・display_name・profile_picture等は意図的に保存しない
+- **理由**: 将来の料金体系導入・ユーザー削除要件・プライバシー規制対応を想定し、個人情報の保存量を最小限に抑える設計判断。id トークンから読み取った情報(sub のみ確実)を毎リクエスト再検証するモデルも検討したが、API の往復増加とレイテンシーのトレードオフを考慮して現在の設計に至った。
+
+### Google OAuth: oauth4webapi を選択した理由
+
+- **採用**: `oauth4webapi`(Node.js 標準化 OAuth/OIDC クライアント、0 依存)
+- **不採用**: Arctic(Lucia Auth が提供する OAuth ラッパー)は 2026 年 7 月に公式で非推奨化された。非推奨ライブラリに新規実装を投資しないため避けた
+- **実装の最小化**: oauth4webapi は ID トークンの `sub` クレーム(Google ユーザー ID)のみ抽出し、その場で `users`テーブルへfind-or-create。userinfoエンドポイント追加 fetch・discovery エンドポイント キャッシング等の最適化は未実装(将来トラフィック実績に基づく検討候補として roadmap に記載)
+
+### 型チェックコマンドの使い分け
+
+- **`pnpm typecheck`**: Astro 標準(`astro check`)で実行。`apps/frontend` の src/ ディレクトリ主体の型チェック。`worker/`ディレクトリは除外設定(worker/tsconfig.json と競合するため)
+- **`pnpm typecheck:worker`**: worker/ 専用。`worker/tsconfig.json`(include: `**/*.ts`)で db/・auth/・api/ 配下の全ファイルをカバー。新規実装時は両方のコマンドで検証すること
+
+### ブックマーク件数上限(MAX_BOOKMARKS_PER_USER)
+
+- **位置づけ**: 無料プラン時点での上限は 10 件(`worker/api/bookmarks-handlers.ts` に定義)
+- **有料プラン拡張予定**: 将来プラン別料金体系を導入する際、同定数をプラン別の値に分岐させる想定。リムーブプラン API 時には「プラン超過」エラーを返すロジックに変更予定
+- **理由**: D1 の無料枠制限(ストレージ・読み書き数)を考慮した設計値
+
 ## 実装上の重要な不変条件
 
 これらはspec.mdに明記されていないか簡潔にしか触れられていない、実装時に発見・決定した制約。**変更する際は理由を理解した上で行うこと。**

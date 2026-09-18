@@ -23,7 +23,8 @@
     {
       "binding": "DB",
       "database_name": "tech-morning-digest-users",
-      "database_id": "REPLACE_WITH_REAL_DATABASE_ID"
+      "database_id": "REPLACE_WITH_REAL_DATABASE_ID",
+      "migrations_dir": "migrations"
     }
   ],
   "triggers": {

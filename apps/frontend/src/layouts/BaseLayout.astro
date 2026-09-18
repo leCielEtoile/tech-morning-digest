@@ -24,6 +24,10 @@ const { title, dateline } = Astro.props;
 				<a class="masthead__wordmark" href="/">TECH MORNING DIGEST</a>
 				<div class="masthead__meta">
 					{dateline && <span>TOKYO — {dateline}</span>}
+					<span class="masthead__auth" data-auth-status hidden>
+						<a href="/api/auth/login" data-auth-login>ログイン</a>
+						<button type="button" data-auth-logout hidden>ログアウト</button>
+					</span>
 					<nav aria-label="サイト内ナビゲーション"><a href="/archive/">アーカイブ →</a></nav>
 				</div>
 			</header>
@@ -31,5 +35,30 @@ const { title, dateline } = Astro.props;
 				<slot />
 			</main>
 		</div>
+		<script>
+			// ログイン状態はCookieの有無をJSからは判定できない(HttpOnly)ため、認証必須APIを
+			// 1回叩いて401かどうかで判定する。JS無効環境では常に「ログイン」リンクが見える
+			// (実際にクリックすればログインフローは動く)フォールバックになる。
+			async function initAuthStatus(): Promise<void> {
+				const statusEl = document.querySelector<HTMLElement>("[data-auth-status]");
+				const loginLink = document.querySelector<HTMLAnchorElement>("[data-auth-login]");
+				const logoutButton = document.querySelector<HTMLButtonElement>("[data-auth-logout]");
+				if (!statusEl || !loginLink || !logoutButton) return;
+
+				statusEl.hidden = false;
+
+				const response = await fetch("/api/preferences", { method: "GET" });
+				const isLoggedIn = response.status !== 401;
+				loginLink.hidden = isLoggedIn;
+				logoutButton.hidden = !isLoggedIn;
+
+				logoutButton.addEventListener("click", async () => {
+					await fetch("/api/auth/logout", { method: "POST" });
+					location.reload();
+				});
+			}
+
+			initAuthStatus();
+		</script>
 	</body>
 </html>

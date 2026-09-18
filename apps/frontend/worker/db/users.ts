@@ -1,19 +1,17 @@
+import { drizzle } from "drizzle-orm/d1";
+import { eq } from "drizzle-orm";
+import { users } from "./schema.js";
+
 export interface User {
   id: string;
   googleSub: string;
 }
 
-interface UserRow {
-  id: string;
-  google_sub: string;
-}
-
 async function selectUserByGoogleSub(db: D1Database, googleSub: string): Promise<User | null> {
-  const row = await db
-    .prepare("SELECT id, google_sub FROM users WHERE google_sub = ?")
-    .bind(googleSub)
-    .first<UserRow>();
-  return row ? { id: row.id, googleSub: row.google_sub } : null;
+  const orm = drizzle(db);
+  const rows = await orm.select().from(users).where(eq(users.googleSub, googleSub)).limit(1);
+  const row = rows[0];
+  return row ? { id: row.id, googleSub: row.googleSub } : null;
 }
 
 /**
@@ -31,12 +29,10 @@ export async function findOrCreateUserByGoogleSub(db: D1Database, googleSub: str
     return existing;
   }
 
+  const orm = drizzle(db);
   const id = crypto.randomUUID();
   try {
-    await db
-      .prepare("INSERT INTO users (id, google_sub, created_at) VALUES (?, ?, ?)")
-      .bind(id, googleSub, new Date().toISOString())
-      .run();
+    await orm.insert(users).values({ id, googleSub, createdAt: new Date().toISOString() });
     return { id, googleSub };
   } catch (error) {
     const retried = await selectUserByGoogleSub(db, googleSub);

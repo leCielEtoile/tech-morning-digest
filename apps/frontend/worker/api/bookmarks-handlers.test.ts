@@ -19,6 +19,16 @@ function fakeDb(
           if (/COUNT/.test(sql)) return { count: options.bookmarkCount ?? 0 };
           return null;
         },
+        // Drizzle(sessions.tsのgetSession)は単純なselect()を.raw()経由で実行する。
+        // "sessions"テーブルへのクエリなら、セッション行を位置ベースの配列(id, user_id,
+        // expires_at)で返す。それ以外(bookmarksのCOUNT等、Task 16でDrizzle化予定)は
+        // 現時点ではraw()を経由しないため空配列でよい。
+        async raw() {
+          if (/"sessions"/.test(sql)) {
+            return options.session ? [[options.session.id, options.session.user_id, options.session.expires_at]] : [];
+          }
+          return [];
+        },
         async run() {
           return { success: true } as unknown as D1Result;
         },

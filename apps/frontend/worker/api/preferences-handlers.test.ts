@@ -15,6 +15,11 @@ function fakeDb(rows: Record<string, unknown>[] = []): D1Database {
         async first() {
           return rows[0] || null;
         },
+        // Drizzle(sessions.tsのgetSession)は単純なselect()を.raw()経由で実行するため、
+        // 「セッションが見つからない」を表す空配列を返す。
+        async raw() {
+          return [];
+        },
         async run() {
           return { success: true } as unknown as D1Result;
         },

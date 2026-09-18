@@ -20,9 +20,9 @@
     "@fontsource/jetbrains-mono": "5.3.0",
     "@fontsource/space-grotesk": "5.3.0",
     "@rss-summary/shared": "workspace:*",
-    "arctic": "^3.7.0",
     "astro": "7.3.2",
-    "aws4fetch": "1.0.20"
+    "aws4fetch": "1.0.20",
+    "oauth4webapi": "^3.8.8"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",

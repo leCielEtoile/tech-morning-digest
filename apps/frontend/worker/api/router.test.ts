@@ -42,3 +42,9 @@ test("requireSession: Cookieがなければnull", async () => {
   const request = new Request("http://localhost/api/bookmarks");
   assert.equal(await requireSession(request, fakeEnv().DB), null);
 });
+
+test("handleApiRequest: GET /api/preferences は認証必須(未ログインで401)", async () => {
+  const request = new Request("http://localhost/api/preferences");
+  const response = await handleApiRequest(request, fakeEnv());
+  assert.equal(response?.status, 401);
+});

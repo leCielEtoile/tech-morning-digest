@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { handleCallback, handleLogin, handleLogout, parseSessionCookie } from "./auth-handlers.js";
+import { handleGetPreferences, handlePutPreferences } from "./preferences-handlers.js";
 import { getSession, type Session } from "../db/sessions.js";
 import type { GoogleAuthConfig } from "../auth/google-oauth.js";
 
@@ -32,6 +33,9 @@ const app = new Hono<{ Bindings: ApiEnv }>();
 app.get("/api/auth/login", (c) => handleLogin(googleConfig(c.req.raw, c.env)));
 app.get("/api/auth/google/callback", (c) => handleCallback(c.req.raw, c.env.DB, googleConfig(c.req.raw, c.env)));
 app.post("/api/auth/logout", (c) => handleLogout(c.req.raw, c.env.DB));
+
+app.get("/api/preferences", (c) => handleGetPreferences(c.req.raw, c.env.DB));
+app.put("/api/preferences", (c) => handlePutPreferences(c.req.raw, c.env.DB));
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

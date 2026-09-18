@@ -22,6 +22,7 @@
     "@rss-summary/shared": "workspace:*",
     "astro": "7.3.2",
     "aws4fetch": "1.0.20",
+    "hono": "^4.13.8",
     "oauth4webapi": "^3.8.8"
   },
   "devDependencies": {

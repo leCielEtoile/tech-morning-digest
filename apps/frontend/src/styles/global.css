@@ -449,14 +449,13 @@ a:focus-visible {
   font-size: 0.85rem;
 }
 
-/* ---------- レスポンシブ ---------- */
-
-.account-guard,
 [data-account-content] label {
   display: flex;
   align-items: center;
   gap: 0.5em;
 }
+
+/* ---------- レスポンシブ ---------- */
 
 @media (max-width: 32rem) {
   body {

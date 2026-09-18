@@ -47,7 +47,9 @@ const { title, dateline } = Astro.props;
 				if (!loginLink || !logoutButton) return;
 
 				const response = await fetch("/api/preferences", { method: "GET" });
-				const isLoggedIn = response.status !== 401;
+				// 2xx以外(401だけでなく500等も含む)は未ログイン扱いにする。
+				// サーバーエラーを「ログイン中」と誤判定しないための明示的な判定。
+				const isLoggedIn = response.ok;
 				loginLink.hidden = isLoggedIn;
 				logoutButton.hidden = !isLoggedIn;
 

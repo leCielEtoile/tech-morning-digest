@@ -1,12 +1,30 @@
 import { requireSession } from "./router.js";
+import { readJsonBody } from "./parse-json.js";
 import { addBookmark, BookmarkLimitReachedError, deleteBookmark, listBookmarks } from "../db/bookmarks.js";
 
+// URL・タイトルの長さ上限。D1行の無制限な肥大化を防ぐための実用値(厳密な仕様値ではない)。
+const MAX_ARTICLE_LINK_LENGTH = 2048;
+const MAX_ARTICLE_TITLE_LENGTH = 500;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function isAddBookmarkBody(value: unknown): value is { articleLink: string; articleTitle: string } {
+  if (typeof value !== "object" || value === null) return false;
+  const articleLink = (value as Record<string, unknown>)["articleLink"];
+  const articleTitle = (value as Record<string, unknown>)["articleTitle"];
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Record<string, unknown>)["articleLink"] === "string" &&
-    typeof (value as Record<string, unknown>)["articleTitle"] === "string"
+    typeof articleLink === "string" &&
+    typeof articleTitle === "string" &&
+    articleLink.length <= MAX_ARTICLE_LINK_LENGTH &&
+    articleTitle.length <= MAX_ARTICLE_TITLE_LENGTH &&
+    isHttpUrl(articleLink)
   );
 }
 
@@ -23,7 +41,7 @@ export async function handleListBookmarks(request: Request, db: D1Database): Pro
 export async function handleAddBookmark(request: Request, db: D1Database): Promise<Response> {
   const session = await requireSession(request, db);
   if (!session) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
-  const body: unknown = await request.json();
+  const body: unknown = await readJsonBody(request);
   if (!isAddBookmarkBody(body)) {
     return new Response(JSON.stringify({ error: "invalid_body" }), { status: 400 });
   }

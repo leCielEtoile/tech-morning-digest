@@ -1,4 +1,5 @@
 import { requireSession } from "./router.js";
+import { readJsonBody } from "./parse-json.js";
 import { getCategoryPrefs, setCategoryPrefs, type CategoryPref } from "../db/preferences.js";
 
 function isCategoryPrefArray(value: unknown): value is CategoryPref[] {
@@ -28,7 +29,7 @@ export async function handlePutPreferences(request: Request, db: D1Database): Pr
   if (!session) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
   }
-  const body: unknown = await request.json();
+  const body: unknown = await readJsonBody(request);
   if (!isCategoryPrefArray(body)) {
     return new Response(JSON.stringify({ error: "invalid_body" }), { status: 400 });
   }

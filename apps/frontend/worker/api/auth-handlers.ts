@@ -1,6 +1,6 @@
 import { exchangeGoogleCode, createGoogleAuthorizationRequest, type GoogleAuthConfig } from "../auth/google-oauth.js";
 import { findOrCreateUserByGoogleSub } from "../db/users.js";
-import { createSession, deleteSession, getSession, SESSION_COOKIE_NAME, SESSION_DURATION_MS } from "../db/sessions.js";
+import { createSession, deleteSession, SESSION_COOKIE_NAME, SESSION_DURATION_MS } from "../db/sessions.js";
 
 const OAUTH_STATE_COOKIE = "oauth_state";
 const OAUTH_CODE_VERIFIER_COOKIE = "oauth_code_verifier";
@@ -44,7 +44,8 @@ export async function handleLogin(config: GoogleAuthConfig): Promise<Response> {
 /**
  * Googleからのコールバックを処理し、ユーザーのfind-or-create・セッション発行を行う。
  * state検証・認可エラーの判定はexchangeGoogleCode(oauth.validateAuthResponse)側が
- * 例外を投げる形で行うため、ここでは短命Cookieの有無だけ確認してまとめてcatchする。
+ * 例外を投げる形で行うため、ここでは短命Cookieの有無だけ確認してcatchする。
+ * find-or-create・セッション発行(D1呼び出し)の失敗も未処理の500にはせず、"/"への302に丸める。
  */
 export async function handleCallback(
   request: Request,
@@ -64,11 +65,20 @@ export async function handleCallback(
   } catch {
     return new Response("不正なリクエストです", { status: 400 });
   }
-  const user = await findOrCreateUserByGoogleSub(db, googleSub);
-  const session = await createSession(db, user.id);
+
+  // D1障害時もログインページに302で戻す(生のユーザーに500を見せない)。
+  // 失敗時はセッションCookieを発行しないため、ユーザーは再度ログインを試みることになる。
+  let sessionId: string;
+  try {
+    const user = await findOrCreateUserByGoogleSub(db, googleSub);
+    const session = await createSession(db, user.id);
+    sessionId = session.id;
+  } catch {
+    return new Response(null, { status: 302, headers: { Location: "/" } });
+  }
 
   const headers = new Headers({ Location: "/" });
-  headers.append("Set-Cookie", sessionCookie(session.id));
+  headers.append("Set-Cookie", sessionCookie(sessionId));
   headers.append("Set-Cookie", clearedCookie(OAUTH_STATE_COOKIE));
   headers.append("Set-Cookie", clearedCookie(OAUTH_CODE_VERIFIER_COOKIE));
   return new Response(null, { status: 302, headers });
@@ -82,11 +92,4 @@ export async function handleLogout(request: Request, db: D1Database): Promise<Re
   const headers = new Headers({ "content-type": "application/json" });
   headers.append("Set-Cookie", clearedCookie(SESSION_COOKIE_NAME));
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
-}
-
-/** ログイン状態確認用。有効なセッションがあればtrue。Task 6のルーターから利用する。 */
-export async function isAuthenticated(request: Request, db: D1Database): Promise<boolean> {
-  const sessionId = parseSessionCookie(request);
-  if (!sessionId) return false;
-  return (await getSession(db, sessionId)) !== null;
 }

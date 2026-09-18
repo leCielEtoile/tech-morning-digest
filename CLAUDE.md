@@ -61,6 +61,8 @@ rss-summary/
 
 > **⚠️ デプロイ後のsecrets確認(重要)**: `apps/frontend`のWorker(`tech-morning-digest`)は、`wrangler.jsonc`に宣言していないsecrets(`DEPLOY_HOOK_URL` / `ALERT_WEBHOOK_URL` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`)をCloudflareダッシュボード側で個別管理している(非機微な`CLOUDFLARE_ACCOUNT_ID`・`R2_BUCKET_NAME`のみ`wrangler.jsonc`の`vars`に宣言済み)。過去にこの4件(現在は6件)が消失し、毎晩のcronとwatchdogアラートの両方が無言で機能停止する障害が発生した(2026-09-13〜09-16、原因未特定)。**mainへのマージ・デプロイを伴う変更の後は、`GET /accounts/{account_id}/workers/scripts/tech-morning-digest/settings`の`bindings`に`ASSETS`以外の6件(secret_text型)が揃っているか確認すること。**欠けていれば`.envrc`の値で`wrangler secret put <NAME>`(またはBulk API `PATCH .../secrets-bulk`)で再投入し、必要なら手動でDeploy Hookを一度叩いて当日分の生成が通ることを確認する。
 
+> **⚠️ 本番D1へのスキーマ適用(重要)**: `apps/frontend/wrangler.jsonc`の`d1_databases[0].database_id`は現在プレースホルダー(`REPLACE_WITH_REAL_DATABASE_ID`)。実際に`wrangler d1 create`でD1データベースを作成し`database_id`を実値に差し替えたら、`apps/frontend`ディレクトリで`npx wrangler d1 execute tech-morning-digest-users --remote --file=worker/db/schema.sql`を実行し、`worker/db/schema.sql`のスキーマを本番(リモート)D1に適用すること(`--local`版はローカル開発用でありリモートには反映されない)。**この適用を忘れると`/api/*`の全ルートがD1クエリで500になるだけでなく、マストヘッドのログイン状態チェック(`BaseLayout.astro`)がその500を「ログイン中」と誤判定するリスクも残る(`response.ok`判定への修正で500は「未ログイン」表示に倒すようにはしたが、根本的にはスキーマを適用しないとAPIが機能しない)。**
+
 ---
 
 ## 開発環境・ツール

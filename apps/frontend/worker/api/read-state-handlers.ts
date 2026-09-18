@@ -1,4 +1,5 @@
 import { requireSession } from "./router.js";
+import { readJsonBody } from "./parse-json.js";
 import { getReadArticleHashes, markArticleRead } from "../db/read-state.js";
 
 function isMarkReadBody(value: unknown): value is { articleGuidHash: string } {
@@ -22,7 +23,7 @@ export async function handleGetReadState(request: Request, db: D1Database): Prom
 export async function handleMarkRead(request: Request, db: D1Database): Promise<Response> {
   const session = await requireSession(request, db);
   if (!session) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
-  const body: unknown = await request.json();
+  const body: unknown = await readJsonBody(request);
   if (!isMarkReadBody(body)) {
     return new Response(JSON.stringify({ error: "invalid_body" }), { status: 400 });
   }

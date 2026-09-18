@@ -56,10 +56,10 @@ importers:
         specifier: 1.0.20
         version: 1.0.20
       hono:
-        specifier: ^4.13.8
+        specifier: 4.13.8
         version: 4.13.8
       oauth4webapi:
-        specifier: ^3.8.8
+        specifier: 3.8.8
         version: 3.8.8
     devDependencies:
       '@astrojs/check':

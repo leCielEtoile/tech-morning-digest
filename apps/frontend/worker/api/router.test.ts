@@ -54,3 +54,9 @@ test("handleApiRequest: GET /api/bookmarks は認証必須(未ログインで401
   const response = await handleApiRequest(request, fakeEnv());
   assert.equal(response?.status, 401);
 });
+
+test("handleApiRequest: GET /api/read-state は認証必須(未ログインで401)", async () => {
+  const request = new Request("http://localhost/api/read-state");
+  const response = await handleApiRequest(request, fakeEnv());
+  assert.equal(response?.status, 401);
+});

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { handleCallback, handleLogin, handleLogout, parseSessionCookie } from "./auth-handlers.js";
 import { handleGetPreferences, handlePutPreferences } from "./preferences-handlers.js";
 import { handleAddBookmark, handleDeleteBookmark, handleListBookmarks } from "./bookmarks-handlers.js";
+import { handleGetReadState, handleMarkRead } from "./read-state-handlers.js";
 import { getSession, type Session } from "../db/sessions.js";
 import type { GoogleAuthConfig } from "../auth/google-oauth.js";
 
@@ -41,6 +42,9 @@ app.put("/api/preferences", (c) => handlePutPreferences(c.req.raw, c.env.DB));
 app.get("/api/bookmarks", (c) => handleListBookmarks(c.req.raw, c.env.DB));
 app.post("/api/bookmarks", (c) => handleAddBookmark(c.req.raw, c.env.DB));
 app.delete("/api/bookmarks/:id", (c) => handleDeleteBookmark(c.req.raw, c.env.DB, c.req.param("id")));
+
+app.get("/api/read-state", (c) => handleGetReadState(c.req.raw, c.env.DB));
+app.post("/api/read-state", (c) => handleMarkRead(c.req.raw, c.env.DB));
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

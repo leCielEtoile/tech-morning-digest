@@ -1,0 +1,110 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+/** apps/backend/src/config/feeds.ts の CATEGORY_ORDER と一致させること */
+const CATEGORIES = [
+	"クラウド・インフラ",
+	"開発・プログラミング",
+	"ガジェット・ハードウェア",
+	"総合IT・テックニュース",
+	"カルチャー・海外トレンド",
+	"個人ブログ・コラム",
+];
+---
+
+<BaseLayout title="アカウント設定 - Tech Morning Digest">
+	<a class="back-link" href="/">← トップに戻る</a>
+	<h1 class="page-title">アカウント設定</h1>
+
+	<div data-account-guard hidden>
+		<p class="no-articles">ログインすると興味カテゴリの設定・ブックマークの確認ができます。</p>
+	</div>
+
+	<div data-account-content hidden>
+		<h2 class="eyebrow">興味カテゴリ</h2>
+		<ul class="category-list" data-category-prefs>
+			{CATEGORIES.map((category) => (
+				<li>
+					<label>
+						<input type="checkbox" value={category} checked />
+						{category}
+					</label>
+				</li>
+			))}
+		</ul>
+		<button type="button" class="mock-button" data-save-prefs>保存</button>
+
+		<h2 class="eyebrow">ブックマーク</h2>
+		<ul class="category-list" data-bookmarks-list></ul>
+	</div>
+</BaseLayout>
+
+<script>
+	interface CategoryPref {
+		category: string;
+		enabled: boolean;
+	}
+
+	interface Bookmark {
+		id: string;
+		articleLink: string;
+		articleTitle: string;
+		savedAt: string;
+	}
+
+	async function initAccountPage(): Promise<void> {
+		const guard = document.querySelector<HTMLElement>("[data-account-guard]");
+		const content = document.querySelector<HTMLElement>("[data-account-content]");
+		const prefsList = document.querySelector<HTMLElement>("[data-category-prefs]");
+		const saveButton = document.querySelector<HTMLButtonElement>("[data-save-prefs]");
+		const bookmarksList = document.querySelector<HTMLElement>("[data-bookmarks-list]");
+		if (!guard || !content || !prefsList || !saveButton || !bookmarksList) return;
+
+		const prefsResponse = await fetch("/api/preferences");
+		if (prefsResponse.status === 401) {
+			guard.hidden = false;
+			return;
+		}
+		content.hidden = false;
+
+		const { prefs } = (await prefsResponse.json()) as { prefs: CategoryPref[] };
+		const disabledCategories = new Set(prefs.filter((p) => !p.enabled).map((p) => p.category));
+		prefsList.querySelectorAll<HTMLInputElement>("input[type=checkbox]").forEach((checkbox) => {
+			checkbox.checked = !disabledCategories.has(checkbox.value);
+		});
+
+		saveButton.addEventListener("click", async () => {
+			const checkboxes = prefsList.querySelectorAll<HTMLInputElement>("input[type=checkbox]");
+			const updated: CategoryPref[] = Array.from(checkboxes).map((checkbox) => ({
+				category: checkbox.value,
+				enabled: checkbox.checked,
+			}));
+			await fetch("/api/preferences", {
+				method: "PUT",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify(updated),
+			});
+		});
+
+		const bookmarksResponse = await fetch("/api/bookmarks");
+		const { bookmarks } = (await bookmarksResponse.json()) as { bookmarks: Bookmark[] };
+		bookmarksList.innerHTML = "";
+		for (const bookmark of bookmarks) {
+			const li = document.createElement("li");
+			const link = document.createElement("a");
+			link.href = bookmark.articleLink;
+			link.textContent = bookmark.articleTitle;
+			const deleteButton = document.createElement("button");
+			deleteButton.type = "button";
+			deleteButton.textContent = "削除";
+			deleteButton.addEventListener("click", async () => {
+				await fetch(`/api/bookmarks/${bookmark.id}`, { method: "DELETE" });
+				li.remove();
+			});
+			li.append(link, deleteButton);
+			bookmarksList.append(li);
+		}
+	}
+
+	initAccountPage();
+</script>

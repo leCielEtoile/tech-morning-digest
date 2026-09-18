@@ -34,8 +34,9 @@ rss-summary/
 │       ├── worker/                     # Cloudflare Worker(スケジュール実行・API/認証)
 │       │   ├── index.ts                # scheduled()ハンドラ(Deploy Hook起動cron + R2欠損ウォッチドッグcron) + fetch()ルーター
 │       │   ├── db/                     # D1(users/sessions/preferences/bookmarks/read-state)アクセス層
+│       │   │   ├── schema.ts           # Drizzle ORMのテーブル定義(正はこちら。生SQLは廃止)
 │       │   │   ├── users.ts、sessions.ts、preferences.ts、bookmarks.ts、read-state.ts
-│       │   │   └── 各モジュールはテスト込み
+│       │   │   └── 各モジュールはDrizzle経由でD1にアクセスし、テスト込み
 │       │   ├── auth/                   # Google OAuth認証(oauth4webapi利用)
 │       │   │   ├── google-oauth.ts     # token交換・session作成・logout処理
 │       │   │   └── google-oauth.test.ts
@@ -48,7 +49,9 @@ rss-summary/
 │       │   │   └── 各ファイルはテスト込み
 │       │   ├── digest-fresh.ts、retry.ts # ユーティリティ(ダイジェスト鮮度判定・リトライ)
 │       │   └── tsconfig.json            # `**/*.ts`で配下全ファイルをカバー
-│       └── wrangler.jsonc              # main=worker/index.ts、triggers.crons 2本(23:30 / 02:00 UTC)、D1バインディング
+│       ├── drizzle.config.ts           # drizzle-kit generate用設定(マイグレーション生成のみ。Cloudflare認証情報は持たない)
+│       ├── migrations/                 # drizzle-kit generateが生成するマイグレーション(手書きしない)
+│       └── wrangler.jsonc              # main=worker/index.ts、triggers.crons 2本(23:30 / 02:00 UTC)、D1バインディング(migrations_dir設定込み)
 ├── packages/
 │   └── shared/               # apps/backend・apps/frontend共通のユーティリティ(@rss-summary/shared)
 ├── spec.md                   # 実装仕様書(要件・設計判断の正)
@@ -61,7 +64,7 @@ rss-summary/
 
 > **⚠️ デプロイ後のsecrets確認(重要)**: `apps/frontend`のWorker(`tech-morning-digest`)は、`wrangler.jsonc`に宣言していないsecrets(`DEPLOY_HOOK_URL` / `ALERT_WEBHOOK_URL` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`)をCloudflareダッシュボード側で個別管理している(非機微な`CLOUDFLARE_ACCOUNT_ID`・`R2_BUCKET_NAME`のみ`wrangler.jsonc`の`vars`に宣言済み)。過去にこの4件(現在は6件)が消失し、毎晩のcronとwatchdogアラートの両方が無言で機能停止する障害が発生した(2026-09-13〜09-16、原因未特定)。**mainへのマージ・デプロイを伴う変更の後は、`GET /accounts/{account_id}/workers/scripts/tech-morning-digest/settings`の`bindings`に`ASSETS`以外の6件(secret_text型)が揃っているか確認すること。**欠けていれば`.envrc`の値で`wrangler secret put <NAME>`(またはBulk API `PATCH .../secrets-bulk`)で再投入し、必要なら手動でDeploy Hookを一度叩いて当日分の生成が通ることを確認する。
 
-> **⚠️ 本番D1へのスキーマ適用(重要)**: `apps/frontend/wrangler.jsonc`の`d1_databases[0].database_id`は現在プレースホルダー(`REPLACE_WITH_REAL_DATABASE_ID`)。実際に`wrangler d1 create`でD1データベースを作成し`database_id`を実値に差し替えたら、`apps/frontend`ディレクトリで`npx wrangler d1 execute tech-morning-digest-users --remote --file=worker/db/schema.sql`を実行し、`worker/db/schema.sql`のスキーマを本番(リモート)D1に適用すること(`--local`版はローカル開発用でありリモートには反映されない)。**この適用を忘れると`/api/*`の全ルートがD1クエリで500になるだけでなく、マストヘッドのログイン状態チェック(`BaseLayout.astro`)がその500を「ログイン中」と誤判定するリスクも残る(`response.ok`判定への修正で500は「未ログイン」表示に倒すようにはしたが、根本的にはスキーマを適用しないとAPIが機能しない)。**
+> **⚠️ 本番D1へのスキーマ適用(重要)**: `apps/frontend/wrangler.jsonc`の`d1_databases[0].database_id`は現在プレースホルダー(`REPLACE_WITH_REAL_DATABASE_ID`)。実際に`wrangler d1 create`でD1データベースを作成し`database_id`を実値に差し替えたら、`apps/frontend`ディレクトリで`npx wrangler d1 migrations apply tech-morning-digest-users --remote`を実行し、`migrations/`配下のマイグレーションを本番(リモート)D1に適用すること(`--local`版はローカル開発用でありリモートには反映されない)。スキーマの正は`worker/db/schema.ts`(Drizzle ORM)であり、変更時は生SQLを手で書かず`npx drizzle-kit generate`でマイグレーションを再生成してからコミットする(生SQLの`schema.sql`は廃止済み)。**この適用を忘れると`/api/*`の全ルートがD1クエリで500になるだけでなく、マストヘッドのログイン状態チェック(`BaseLayout.astro`)がその500を「ログイン中」と誤判定するリスクも残る(`response.ok`判定への修正で500は「未ログイン」表示に倒すようにはしたが、根本的にはスキーマを適用しないとAPIが機能しない)。**
 
 ---
 

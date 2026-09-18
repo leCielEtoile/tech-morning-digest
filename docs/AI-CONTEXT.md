@@ -139,6 +139,21 @@ interface DigestPayload {
 - **有料プラン拡張予定**: 将来プラン別料金体系を導入する際、同定数をプラン別の値に分岐させる想定。上限緩和後も超過分については「プラン超過」エラーを返すロジックへ変更する予定
 - **理由**: D1 の無料枠制限(ストレージ・読み書き数)を考慮した設計値
 
+### D1スキーマ管理: Drizzle ORM
+
+- **採用理由**: 有料プラン導入時にテーブルを追加していく前提で、型定義とマイグレーション生成を単一の`schema.ts`に紐付けることで、手書きSQLとTypeScriptの型定義が別々にドリフトする(型だけ更新してスキーマ更新を忘れる、あるいはその逆)リスクを構造的に減らす判断
+- **正は`worker/db/schema.ts`**: 生SQLの`schema.sql`は廃止済み。スキーマを変更する際は`schema.ts`を編集したうえで`npx drizzle-kit generate`を実行し、`migrations/`配下に新しいマイグレーションファイルを生成すること(手でSQLファイルを追加しない)
+- **マイグレーション適用は`wrangler d1 migrations apply`**: `drizzle-kit`自身のマイグレーター(`d1-http`ドライバ)は使わない設計(`drizzle.config.ts`にCloudflareの認証情報を持たせていない)。ローカルは`--local`、本番は`--remote`フラグで使い分ける
+- **マイグレーションのファイル配置**: 導入時点(drizzle-kit 0.31.10)ではフラット配置(`migrations/0000_<name>.sql` + `migrations/meta/`)で生成される。これは`wrangler d1 migrations apply`がデフォルトで期待する配置(`migrations_dir`直下のトップレベル`.sql`ファイル)と一致するため、`wrangler.jsonc`には`migrations_dir`のみ設定し`migrations_pattern`は付与していない。**drizzle-kitのバージョンアップでネスト配置(`migrations/0001_x/migration.sql`)に変わった場合は、`wrangler.jsonc`に`migrations_pattern: "migrations/*/migration.sql"`の追加が必要になる**(Cloudflare公式ドキュメントで確認済みの対応方法)
+
+### テスト時の重要な注意: DrizzleのD1ドライバは`.raw()`を使う
+
+- Drizzleの単純な`select()`(`.limit()`付き含む)は、`db.prepare(sql).bind(...).first()`でも`.all()`でもなく、D1の**`.raw()`**(列を位置ベースの配列`unknown[][]`で返す生API)経由で実行される(`insert`/`update`/`delete`は従来通り`.run()`)。これは実装時に実際のエラーメッセージ(`this.stmt.bind(...).raw is not a function`)から発見した挙動で、ドキュメントには明記されていない
+- そのため各`worker/db/*.test.ts`の`fakeDb`は`.raw()`を実装する必要がある。fixtureの行オブジェクトを、対象テーブルの`schema.ts`宣言順(=旧`schema.sql`のカラム順)で位置配列に変換したものを返すこと
+- `count()`集計クエリ(`orm.select({ value: count() })...`、`bookmarks.ts`の`addBookmark`が使用)も同様に`.raw()`経由。SQL文言に`count(`が含まれるかで集計クエリかどうかを判定するフェイク実装にしている
+- `db.batch([...])`(`preferences.ts`の`setCategoryPrefs`が使用)はD1の`.batch()`をそのまま呼ぶため、既存の`fakeDb`の`batch()`実装は変更不要
+- **SQL文字列の完全一致チェックはしないこと**: Drizzleが生成するSQL文言(カラムの引用符・プレースホルダ形式等)は手書きSQLと異なる。代わりに、bindされたパラメータの値・戻り値・(`desc`/`conflict`等の)部分文字列の有無で検証すること
+
 ## 実装上の重要な不変条件
 
 これらはspec.mdに明記されていないか簡潔にしか触れられていない、実装時に発見・決定した制約。**変更する際は理由を理解した上で行うこと。**

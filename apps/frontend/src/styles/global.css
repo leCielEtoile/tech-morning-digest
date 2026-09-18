@@ -383,6 +383,28 @@ a:focus-visible {
   font-size: 0.85rem;
 }
 
+.bookmark-button {
+  display: inline-block;
+  margin-top: 0.4em;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.bookmark-button:hover:not(:disabled) {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+.bookmark-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .no-articles {
   color: var(--ink-muted);
   font-style: normal;

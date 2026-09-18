@@ -114,12 +114,12 @@ interface DigestPayload {
 ### セッション管理(DB参照型)
 
 - **セッション方式**: JWT ではなく、D1 データベース(`sessions`テーブル)に保存される参照型セッション。各リクエストごとに session ID を Cookie(`session_id`)から読み取り、D1 へ問い合わせしてセッションを検証する(ステートレスではない)
-- **Cookie**: `session_id`(名前固定)、Secure・HttpOnly・SameSite=Strict で設定、有効期限30日
+- **Cookie**: `session_id`(名前固定)、Secure・HttpOnly・SameSite=Lax で設定、有効期限30日
 - **メリット**: JWT トークン漏洩時にサーバー側から即座にセッションを無効化できる、セッション更新時の署名再生成が不要、ユーザー削除・ブロック時の反映が即座。トレードオフとしてスケーリング時の状態管理が必要(本プロジェクトは個人用途のため許容)
 
 ### データ最小化ポリシー
 
-- **`users`テーブル**: `id`(PK、Google sub)・`created_at` のみ保存。email・display_name・profile_picture等は意図的に保存しない
+- **`users`テーブル**: `id`(PK、内部生成 UUID)・`google_sub`(Google の sub 値、UNIQUE 制約)・`created_at` の3列。email・display_name・profile_picture等は意図的に保存しない
 - **理由**: 将来の料金体系導入・ユーザー削除要件・プライバシー規制対応を想定し、個人情報の保存量を最小限に抑える設計判断。id トークンから読み取った情報(sub のみ確実)を毎リクエスト再検証するモデルも検討したが、API の往復増加とレイテンシーのトレードオフを考慮して現在の設計に至った。
 
 ### Google OAuth: oauth4webapi を選択した理由
@@ -135,7 +135,7 @@ interface DigestPayload {
 
 ### ブックマーク件数上限(MAX_BOOKMARKS_PER_USER)
 
-- **位置づけ**: 無料プラン時点での上限は 10 件(`worker/api/bookmarks-handlers.ts` に定義)
+- **位置づけ**: 無料プラン時点での上限は 10 件(`worker/db/bookmarks.ts` に定義)
 - **有料プラン拡張予定**: 将来プラン別料金体系を導入する際、同定数をプラン別の値に分岐させる想定。リムーブプラン API 時には「プラン超過」エラーを返すロジックに変更予定
 - **理由**: D1 の無料枠制限(ストレージ・読み書き数)を考慮した設計値
 

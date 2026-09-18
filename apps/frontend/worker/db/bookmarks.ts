@@ -1,15 +1,12 @@
+import { drizzle } from "drizzle-orm/d1";
+import { and, count, desc, eq } from "drizzle-orm";
+import { bookmarks } from "./schema.js";
+
 export interface Bookmark {
   id: string;
   articleLink: string;
   articleTitle: string;
   savedAt: string;
-}
-
-interface BookmarkRow {
-  id: string;
-  article_link: string;
-  article_title: string;
-  saved_at: string;
 }
 
 /**
@@ -24,16 +21,19 @@ export class BookmarkLimitReachedError extends Error {
   }
 }
 
-function toBookmark(row: BookmarkRow): Bookmark {
-  return { id: row.id, articleLink: row.article_link, articleTitle: row.article_title, savedAt: row.saved_at };
-}
-
 export async function listBookmarks(db: D1Database, userId: string): Promise<Bookmark[]> {
-  const { results } = await db
-    .prepare("SELECT id, article_link, article_title, saved_at FROM bookmarks WHERE user_id = ? ORDER BY saved_at DESC")
-    .bind(userId)
-    .all<BookmarkRow>();
-  return results.map(toBookmark);
+  const orm = drizzle(db);
+  const rows = await orm
+    .select()
+    .from(bookmarks)
+    .where(eq(bookmarks.userId, userId))
+    .orderBy(desc(bookmarks.savedAt));
+  return rows.map((row) => ({
+    id: row.id,
+    articleLink: row.articleLink,
+    articleTitle: row.articleTitle,
+    savedAt: row.savedAt,
+  }));
 }
 
 export async function addBookmark(
@@ -42,11 +42,10 @@ export async function addBookmark(
   articleLink: string,
   articleTitle: string,
 ): Promise<Bookmark> {
-  const { count } = (await db
-    .prepare("SELECT COUNT(*) as count FROM bookmarks WHERE user_id = ?")
-    .bind(userId)
-    .first<{ count: number }>()) ?? { count: 0 };
-  if (count >= MAX_BOOKMARKS_PER_USER) {
+  const orm = drizzle(db);
+  const [countRow] = await orm.select({ value: count() }).from(bookmarks).where(eq(bookmarks.userId, userId));
+  const currentCount = countRow?.value ?? 0;
+  if (currentCount >= MAX_BOOKMARKS_PER_USER) {
     throw new BookmarkLimitReachedError();
   }
 
@@ -56,14 +55,18 @@ export async function addBookmark(
     articleTitle,
     savedAt: new Date().toISOString(),
   };
-  await db
-    .prepare("INSERT INTO bookmarks (id, user_id, article_link, article_title, saved_at) VALUES (?, ?, ?, ?, ?)")
-    .bind(bookmark.id, userId, bookmark.articleLink, bookmark.articleTitle, bookmark.savedAt)
-    .run();
+  await orm.insert(bookmarks).values({
+    id: bookmark.id,
+    userId,
+    articleLink: bookmark.articleLink,
+    articleTitle: bookmark.articleTitle,
+    savedAt: bookmark.savedAt,
+  });
   return bookmark;
 }
 
 /** user_idも条件に含めることで、他人のブックマークIDを指定しても削除できないようにする。 */
 export async function deleteBookmark(db: D1Database, userId: string, bookmarkId: string): Promise<void> {
-  await db.prepare("DELETE FROM bookmarks WHERE id = ? AND user_id = ?").bind(bookmarkId, userId).run();
+  const orm = drizzle(db);
+  await orm.delete(bookmarks).where(and(eq(bookmarks.id, bookmarkId), eq(bookmarks.userId, userId)));
 }

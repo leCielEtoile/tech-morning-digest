@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { handleAddBookmark, handleDeleteBookmark, handleListBookmarks } from "./bookmarks-handlers.js";
 
+/**
+ * Drizzleは単純なselect()・count()集計select()のいずれも、D1の.raw()(位置ベース配列を
+ * 返す生API)を経由して実行する。SQL文言で対象テーブル("sessions"かどうか)・集計クエリ
+ * (count(を含むか)かどうかを判定して、対応する結果を位置配列で返す。
+ */
 function fakeDb(
   options: { session?: { id: string; user_id: string; expires_at: string }; bookmarkCount?: number } = {},
 ): D1Database {
@@ -14,18 +19,12 @@ function fakeDb(
         async all() {
           return { results: [] };
         },
-        async first() {
-          if (/FROM sessions/.test(sql)) return options.session ?? null;
-          if (/COUNT/.test(sql)) return { count: options.bookmarkCount ?? 0 };
-          return null;
-        },
-        // Drizzle(sessions.tsのgetSession)は単純なselect()を.raw()経由で実行する。
-        // "sessions"テーブルへのクエリなら、セッション行を位置ベースの配列(id, user_id,
-        // expires_at)で返す。それ以外(bookmarksのCOUNT等、Task 16でDrizzle化予定)は
-        // 現時点ではraw()を経由しないため空配列でよい。
         async raw() {
           if (/"sessions"/.test(sql)) {
             return options.session ? [[options.session.id, options.session.user_id, options.session.expires_at]] : [];
+          }
+          if (/count\(/i.test(sql)) {
+            return [[options.bookmarkCount ?? 0]];
           }
           return [];
         },

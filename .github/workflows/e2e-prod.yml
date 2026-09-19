@@ -1,0 +1,28 @@
+name: E2E (実環境スモークテスト)
+
+# デプロイ自体はこのリポジトリのCI経由では行われない(手動 or Workers Builds側)ため、
+# push/pull_requestには連動させない。手動実行と定期実行のみ。
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *" # UTC 03:00(既存のbuildクローンcron 23:30・watchdog 02:00の後)
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 実環境スモークテスト
+        run: pnpm --filter @rss-summary/frontend test:e2e:prod
+        env:
+          PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}

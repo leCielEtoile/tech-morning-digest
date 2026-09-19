@@ -41,29 +41,38 @@ rss-summary/
 │       │   │   ├── google-oauth.ts     # token交換・session作成・logout処理
 │       │   │   └── google-oauth.test.ts
 │       │   ├── api/                    # Honoベースのエンドポイント(/api/*)
-│       │   │   ├── router.ts           # ルーティング(Hono。各handlerはFramework非依存のRequest/D1Database受け取り)
+│       │   │   ├── router.ts           # ルーティング(Hono。各handlerはFramework非依存のRequest/D1Database受け取り)。OpenAPI定義(describeRoute)・GET /api/openapi.json・GET /api/docs(Swagger UI)もここ
 │       │   │   ├── auth-handlers.ts    # POST /api/auth/login/callback、/api/auth/logout
 │       │   │   ├── preferences-handlers.ts # GET/PUT /api/preferences
 │       │   │   ├── bookmarks-handlers.ts # GET/POST/DELETE /api/bookmarks(/:id)
 │       │   │   ├── read-state-handlers.ts # GET/POST /api/read-state
 │       │   │   └── 各ファイルはテスト込み
 │       │   ├── digest-fresh.ts、retry.ts # ユーティリティ(ダイジェスト鮮度判定・リトライ)
-│       │   └── tsconfig.json            # `**/*.ts`で配下全ファイルをカバー
+│       │   └── tsconfig.json            # `**/*.ts`(+ ../e2e, ../e2e-prod)で配下全ファイルをカバー
 │       ├── drizzle.config.ts           # drizzle-kit generate用設定(マイグレーション生成のみ。Cloudflare認証情報は持たない)
 │       ├── migrations/                 # drizzle-kit generateが生成するマイグレーション(手書きしない)
+│       ├── e2e/                        # ローカルe2e(`@cloudflare/vitest-plugin`。実workerd+実(ローカル)D1、secrets不要。`pnpm test:e2e`)
+│       ├── e2e-prod/                   # 実環境スモークテスト(素のfetch。`PROD_BASE_URL`必須。`pnpm test:e2e:prod`)
 │       └── wrangler.jsonc              # main=worker/index.ts、triggers.crons 2本(23:30 / 02:00 UTC)、D1バインディング(migrations_dir設定込み)
 ├── packages/
 │   └── shared/               # apps/backend・apps/frontend共通のユーティリティ(@rss-summary/shared)
+├── .github/workflows/
+│   ├── ci.yml                # push/PR。backend・frontend(typecheck/typecheck:worker/test/test:e2e)・build
+│   └── e2e-prod.yml          # 手動実行(workflow_dispatch)・定期実行(毎日03:00 UTC)のみ。実環境スモークテスト
 ├── spec.md                   # 実装仕様書(要件・設計判断の正)
 └── docs/                     # 技術ドキュメント
 ```
 
 > **配信について**: フロントWorker(Workers Static Assets)に同居する`scheduled()`ハンドラが、毎朝のcron(`30 23 * * *` UTC)でDeploy HookをPOSTしてWorkers Buildsのビルドを起動します。Workers Buildsは1回のビルドで backend の生成処理(RSSフィード取得 → 既読GUIDと突き合わせ → Gemini要約 → R2へ`{date}.json`と`state/read-guids.json`を書き込み)→ Astro ビルド → `wrangler deploy` を実行します。HTML変換はAstroのビルド時に行います。もう1本のcron(`0 2 * * *` UTC)がウォッチドッグで、当日分の生成結果がR2にあるか確認し、欠損していればDiscord/SlackのWebhookへ通知します。既読GUIDの状態はR2オブジェクト`state/read-guids.json`に保存し、実行のたびに上書きします
 >
-> **API・認証について**: `/api/*`エンドポイントはHonoをルーティングフレームワークとして採用しており、エンドポイント数増加に対応しています。各APIハンドラー(`auth-handlers`・`preferences-handlers`・`bookmarks-handlers`・`read-state-handlers`)は設計上Honoフレームワークに依存しておらず、素の`Request`・`D1Database`のみを受け取り、純粋な処理ロジックとして実装されています。D1バインディング(`env.DB`、データベース名`tech-morning-digest-users`)を使用してセッション・ユーザー・ブックマーク・興味カテゴリ設定・個人既読状態を管理しています。
+> **API・認証について**: `/api/*`エンドポイントはHonoをルーティングフレームワークとして採用しており、エンドポイント数増加に対応しています。各APIハンドラー(`auth-handlers`・`preferences-handlers`・`bookmarks-handlers`・`read-state-handlers`)は設計上Honoフレームワークに依存しておらず、素の`Request`・`D1Database`のみを受け取り、純粋な処理ロジックとして実装されています。D1バインディング(`env.DB`、データベース名`tech-morning-digest-users`)を使用してセッション・ユーザー・ブックマーク・興味カテゴリ設定・個人既読状態を管理しています。APIドキュメントは`hono-openapi`(`describeRoute`をルート登録に付与するだけの非侵襲な方式。ハンドラー本体・既存のバリデーションロジックは無改修)が自動生成するOpenAPI 3.1仕様で、`GET /api/docs`(Swagger UI)・`GET /api/openapi.json`から参照できます。
+>
+> **テストについて**: 3層構成です。①`pnpm test`(node:test、D1をモックしたfakeDb、ロジック単体の高速検証)。②`pnpm test:e2e`(`@cloudflare/vitest-plugin`。実workerd+実(ローカル)D1上で`/api/*`を実際にfetchするローカルe2e。CIのpush/PRで毎回実行、secrets不要。認証はGoogle OAuthを経由せず`findOrCreateUserByGoogleSub`/`createSession`を直接呼んでセッションをseedする)。③`pnpm test:e2e:prod`(実デプロイ済みURLへの素のfetchによるスモークテスト。未認証パス・OAuthログイン開始・ドキュメント公開のみ確認し、認証済みAPIの実DB往復は対象外。`PROD_BASE_URL`必須、未設定時はスキップ。CIでは`.github/workflows/e2e-prod.yml`が手動/定期実行のみで動かす — デプロイ自体がCI経由ではないためpush/PRには連動させない)。
 
 > **⚠️ デプロイ後のsecrets確認(重要)**: `apps/frontend`のWorker(`tech-morning-digest`)は、`wrangler.jsonc`に宣言していないsecrets(`DEPLOY_HOOK_URL` / `ALERT_WEBHOOK_URL` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`)をCloudflareダッシュボード側で個別管理している(非機微な`CLOUDFLARE_ACCOUNT_ID`・`R2_BUCKET_NAME`のみ`wrangler.jsonc`の`vars`に宣言済み)。過去にこの4件(現在は6件)が消失し、毎晩のcronとwatchdogアラートの両方が無言で機能停止する障害が発生した(2026-09-13〜09-16、原因未特定)。**mainへのマージ・デプロイを伴う変更の後は、`GET /accounts/{account_id}/workers/scripts/tech-morning-digest/settings`の`bindings`に`ASSETS`以外の6件(secret_text型)が揃っているか確認すること。**欠けていれば`.envrc`の値で`wrangler secret put <NAME>`(またはBulk API `PATCH .../secrets-bulk`)で再投入し、必要なら手動でDeploy Hookを一度叩いて当日分の生成が通ることを確認する。
 
+> **⚠️ CI(GitHub Actions)のsecrets/variables登録(重要)**: `.github/workflows/ci.yml`のfrontendビルドステップは`CLOUDFLARE_ACCOUNT_ID`・`R2_ACCESS_KEY_ID`・`R2_SECRET_ACCESS_KEY`・`R2_BUCKET_NAME`をGitHub Actionsのrepository secretsとして必要とする(値は`.envrc`と同じもの。Settings → Secrets and variables → Actions → Secretsで登録)。フォークからのPRではsecretsが渡されないためビルドステップは自動的にスキップされる(それ以外のtypecheck/test/test:e2eは常に実行される)。また`.github/workflows/e2e-prod.yml`(手動/定期実行)は実際にデプロイされているURLをrepository variable `PROD_BASE_URL`として登録する必要がある(Settings → Secrets and variables → Actions → Variables)。いずれもAIエージェントからは登録できないため、人手での設定が必要。
+>
 > **⚠️ 本番D1へのスキーマ適用(重要)**: `apps/frontend/wrangler.jsonc`の`d1_databases[0].database_id`は現在プレースホルダー(`REPLACE_WITH_REAL_DATABASE_ID`)。実際に`wrangler d1 create`でD1データベースを作成し`database_id`を実値に差し替えたら、`apps/frontend`ディレクトリで`npx wrangler d1 migrations apply tech-morning-digest-users --remote`を実行し、`migrations/`配下のマイグレーションを本番(リモート)D1に適用すること(`--local`版はローカル開発用でありリモートには反映されない)。スキーマの正は`worker/db/schema.ts`(Drizzle ORM)であり、変更時は生SQLを手で書かず`npx drizzle-kit generate`でマイグレーションを再生成してからコミットする(生SQLの`schema.sql`は廃止済み)。**この適用を忘れると`/api/*`の全ルートがD1クエリで500になるだけでなく、マストヘッドのログイン状態チェック(`BaseLayout.astro`)がその500を「ログイン中」と誤判定するリスクも残る(`response.ok`判定への修正で500は「未ログイン」表示に倒すようにはしたが、根本的にはスキーマを適用しないとAPIが機能しない)。** ローカル開発用DBで過去に旧`schema.sql`(`wrangler d1 execute --file=`)を直接適用したことがある場合、マイグレーションが作成しようとするテーブル群がすでに存在するため`wrangler d1 migrations apply --local`が`table already exists`で失敗する。その場合は`.wrangler/state/v3/d1`(gitignore対象)を削除してから再適用すること。
 
 ---

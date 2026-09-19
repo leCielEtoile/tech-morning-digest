@@ -6,6 +6,11 @@ allowBuilds:
   esbuild: true
   workerd: true
 
+minimumReleaseAgeExclude:
+  - '@cloudflare/vitest-plugin@1.1.13'
+  - miniflare@5.20260918.0-alpha
+  - wrangler@4.135.0
+
 # miniflare(wrangler経由)がundici@7.28.0を固定指定しているが、7.29.0未満に
 # 既知の脆弱性(GHSA、Dependabot検出)があるため上書きする(2026-08-06)。
 #

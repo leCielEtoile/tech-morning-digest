@@ -154,6 +154,24 @@ interface DigestPayload {
 - `db.batch([...])`(`preferences.ts`の`setCategoryPrefs`が使用)はD1の`.batch()`をそのまま呼ぶため、既存の`fakeDb`の`batch()`実装は変更不要
 - **SQL文字列の完全一致チェックはしないこと**: Drizzleが生成するSQL文言(カラムの引用符・プレースホルダ形式等)は手書きSQLと異なる。代わりに、bindされたパラメータの値・戻り値・(`desc`/`conflict`等の)部分文字列の有無で検証すること
 
+### API仕様: OpenAPI 3.1 + Swagger UI(`hono-openapi`)
+
+- **採用理由**: `@hono/zod-openapi`は`createRoute()`/`OpenAPIHono`への書き換えが必要で、「ハンドラーはHonoに依存させない」という既存設計(`router.ts`のコメント参照)と衝突する。`hono-openapi`の`describeRoute()`はmiddlewareとして既存の`app.get/post/put/delete(...)`に追記するだけで済み、ハンドラー本体・既存の手書きバリデーション(`isCategoryPrefArray`等)は無改修
+- **Zodは使わない**: `describeRoute()`にはOpenAPI形式のJSON Schemaを直接渡せるため、Zod依存を新規に増やさず、既存のバリデーションロジックと重複する検証エンジンも持ち込まない(このためスキーマ記述は手書きで、実際のバリデーション関数と食い違わないよう変更時は両方を確認すること)
+- **OpenAPIバージョン**: `hono-openapi`はデフォルトでOpenAPI **3.1.0**を生成する(3.2固有機能を使わない限り3.1のまま)。バージョン文字列を明示的に上書きしないこと
+- **公開エンドポイント**: `GET /api/openapi.json`(spec本体)・`GET /api/docs`(Swagger UI)。どちらも認証不要(APIの形状情報のみで秘匿情報を含まないため)
+
+### テスト戦略: 3層構成
+
+1. **`pnpm test`**(node:test): D1をモックした`fakeDb`によるロジック単体テスト。高速だが実DBの挙動(実際にDELETEが効くか等)までは保証しない
+2. **`pnpm test:e2e`**(`@cloudflare/vitest-plugin`。旧`@cloudflare/vitest-pool-workers`からリネーム済みのパッケージ、vitest `^4.1.0`必須(vitest 5系はpeerDependencies違反になるため使わない)): 実workerd + 実(ローカル)D1上で`/api/*`を`SELF.fetch()`で実際に叩くローカルe2e。設定は`vitest.config.ts`、テスト本体は`e2e/api.e2e.test.ts`、マイグレーション適用は`e2e/setup.ts`(`applyD1Migrations`)。R2・Google実クレデンシャルは不要(GOOGLE_CLIENT_ID/SECRETは`vitest.config.ts`内でテスト専用ダミー値をminiflareバインディングとして上書き)。認証はGoogle OAuthを経由せず、実装済みの`findOrCreateUserByGoogleSub`/`createSession`を`env.DB`に対して直接呼び出してセッションをseedする
+3. **`pnpm test:e2e:prod`**(素の`fetch()`、node:test): 実際にデプロイされたURL(`PROD_BASE_URL`環境変数)へのスモークテスト。未認証パスの401/404・OAuthログイン開始のリダイレクト構築(PKCE/Cookie属性)・ドキュメント公開のみを確認し、認証済みAPIの実DB往復は対象外(実データを汚すリスクがあるため)。`PROD_BASE_URL`未設定時は全テストをスキップする(ローカル実行を妨げないため)
+
+**実装上の注意点(躓きやすい箇所)**:
+- `cloudflare:test`の`env`は型上`Cloudflare.Env`(既定で空の`interface Env {}`)になる。このプロジェクトは`wrangler types`によるコード生成を導入していないため、`env`は`ApiEnv`(`worker/api/router.ts`)へ`as unknown as`でキャストして使う(既存の`fakeDb`系テストが`D1Database`へキャストしているのと同じパターン)
+- `e2e/`・`e2e-prod/`ディレクトリは`worker/tsconfig.json`の`include`に追加してカバーし(`pnpm typecheck:worker`が検証する)、逆にAstro側の`apps/frontend/tsconfig.json`の`exclude`にも追加している(`worker`と同じ理由。Astroのtsconfigは`@cloudflare/workers-types`を持たないため、`Response.json<T>()`等の型が解決できずに誤検出する)
+- `pnpm test`(既存のnode:test)のglob(`worker/**/*.test.ts`)と衝突しないよう、e2eテストは`worker/`の外(`apps/frontend/e2e/`)に配置している
+
 ## 実装上の重要な不変条件
 
 これらはspec.mdに明記されていないか簡潔にしか触れられていない、実装時に発見・決定した制約。**変更する際は理由を理解した上で行うこと。**

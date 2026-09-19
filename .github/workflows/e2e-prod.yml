@@ -22,6 +22,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # PROD_BASE_URL(repository variable)が未登録だとsmoke.test.tsの全テストが
+      # スキップされ、jobは何も検証しないまま成功扱いになる(過去のsecrets消失障害と
+      # 同じ「監視が無言で機能停止する」失敗モード)。未登録ならここで明示的に落とす。
+      - name: PROD_BASE_URL登録確認
+        run: test -n "${{ vars.PROD_BASE_URL }}" || { echo "::error::repository variable PROD_BASE_URLが未登録です"; exit 1; }
+
       - name: 実環境スモークテスト
         run: pnpm --filter @rss-summary/frontend test:e2e:prod
         env:

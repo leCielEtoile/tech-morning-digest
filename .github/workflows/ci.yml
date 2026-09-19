@@ -26,9 +26,6 @@ jobs:
       - name: backend test
         run: pnpm backend:test
 
-      - name: frontend typecheck (astro)
-        run: pnpm --filter @rss-summary/frontend typecheck
-
       - name: frontend typecheck (worker)
         run: pnpm --filter @rss-summary/frontend typecheck:worker
 
@@ -37,6 +34,19 @@ jobs:
 
       - name: frontend local e2e (実workerd + 実(ローカル)D1、secrets不要)
         run: pnpm --filter @rss-summary/frontend test:e2e
+
+      # astro check(typecheck)はコンテンツコレクション同期の過程でdigests-loader経由の
+      # R2アクセスが実際に走るため、R2認証情報がないと(fork PRのように)必ず失敗する。
+      # buildと同じsecrets・同じifガードを付与する(フォークPRではスキップ。新規追加分の
+      # 型はtypecheck:workerが別途カバーするため実害は小さい)。
+      - name: frontend typecheck (astro)
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        run: pnpm --filter @rss-summary/frontend typecheck
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
 
       # フォークからのPRではrepository secretsが渡されないため、このステップはスキップする
       # (以降のジョブは失敗させない。ビルド検証はsecretsを登録できるpush/同一リポジトリのPRのみ)

@@ -11,9 +11,16 @@ import type { ApiEnv } from "../worker/api/router.js";
  */
 const testEnv = env as unknown as ApiEnv;
 
-/** 実際のGoogle OAuthを経由せず、実装済みのDB関数でユーザー・セッションを直接作成する。 */
-async function seedSession(googleSub: string): Promise<string> {
-  const user = await findOrCreateUserByGoogleSub(testEnv.DB, googleSub);
+/**
+ * 実際のGoogle OAuthを経由せず、実装済みのDB関数でユーザー・セッションを直接作成する。
+ * `@cloudflare/vitest-plugin`にはテストごとのストレージ分離がなく、同一D1がファイル内の
+ * 全describeで共有される。`findOrCreateUserByGoogleSub`は同じsubなら既存ユーザーを返すため、
+ * 固定文字列のsubのまま再実行(--retryやwatchモード)するとブックマーク上限テスト等が
+ * 「既に9件登録済みのユーザー」に対して実行されて失敗する。呼び出しごとに一意なsubにして
+ * この非冪等性を避ける。
+ */
+async function seedSession(label: string): Promise<string> {
+  const user = await findOrCreateUserByGoogleSub(testEnv.DB, `${label}-${crypto.randomUUID()}`);
   const session = await createSession(testEnv.DB, user.id);
   return session.id;
 }

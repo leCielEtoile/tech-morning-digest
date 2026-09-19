@@ -20,10 +20,10 @@ function fakeDb(
           return { results: [] };
         },
         async raw() {
-          if (/"sessions"/.test(sql)) {
+          if (/from "sessions"/i.test(sql)) {
             return options.session ? [[options.session.id, options.session.user_id, options.session.expires_at]] : [];
           }
-          if (/count\(/i.test(sql)) {
+          if (/select count\(/i.test(sql)) {
             return [[options.bookmarkCount ?? 0]];
           }
           return [];

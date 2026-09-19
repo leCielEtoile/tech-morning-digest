@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { findOrCreateUserByGoogleSub } from "./users.js";
 
-const USER_COLUMNS = ["id", "google_sub"];
+const USER_COLUMNS = ["id", "google_sub", "created_at"];
 
 /**
  * Drizzleの単純なselect()は`.raw()`(位置ベースの配列を返すD1の生API)経由で実行される。

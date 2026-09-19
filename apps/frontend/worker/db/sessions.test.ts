@@ -59,7 +59,7 @@ test("createSession: INSERTを実行しSessionを返す", async () => {
   assert.equal(session.userId, "user-1");
   assert.ok(session.id.length > 0);
   assert.ok(new Date(session.expiresAt).getTime() > Date.now());
-  const insertCall = calls.find((c) => c.params.includes(session.id) && c.params.includes("user-1"));
+  const insertCall = calls.find((c) => c.method === "run" && c.params.includes(session.id) && c.params.includes("user-1"));
   assert.ok(insertCall, "セッションIDとuserIdを含むINSERT呼び出しが記録されていること");
 });
 
@@ -88,6 +88,6 @@ test("deleteSession: DELETEを実行する", async () => {
   const { db, calls } = fakeDb([], SESSION_COLUMNS);
   await deleteSession(db, "sess-1");
 
-  const deleteCall = calls.find((c) => c.params.includes("sess-1"));
-  assert.ok(deleteCall, "sessionIdを含む呼び出しが記録されていること");
+  const deleteCall = calls.find((c) => c.method === "run" && c.params.includes("sess-1"));
+  assert.ok(deleteCall, "sessionIdを含むDELETE呼び出しが記録されていること");
 });

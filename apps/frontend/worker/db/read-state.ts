@@ -14,6 +14,8 @@ export async function getReadArticleHashes(db: D1Database, userId: string): Prom
 /**
  * 既読登録する。同じ記事を複数回既読にしてもエラーにならないよう`onConflictDoNothing`を使う
  * ((user_id, article_guid_hash)の複合主キーにより、既存行があれば単に無視される)。
+ * 旧実装の`INSERT OR IGNORE`はFK違反等も無視したが、`onConflictDoNothing`は一意制約違反の
+ * みを無視し、FK違反(存在しないuserId)は例外になる点に注意(冪等性の要件自体は満たす)。
  */
 export async function markArticleRead(db: D1Database, userId: string, articleGuidHash: string): Promise<void> {
   const orm = drizzle(db);

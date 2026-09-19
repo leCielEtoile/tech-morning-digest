@@ -24,13 +24,13 @@ function fakeDb(options: { rows?: Record<string, unknown>[]; bookmarkCount?: num
         },
         async raw<T>() {
           calls.push({ method: "raw", sql, params });
-          if (/count\(/i.test(sql)) {
+          if (/select count\(/i.test(sql)) {
             return [[options.bookmarkCount ?? 0]] as unknown as T[];
           }
-          // fixtureはsaved_at昇順で渡す想定。生成SQLに"desc"が含まれていれば(orderBy(desc(...))が
-          // 効いている証拠として)反転して返す。これによりlistBookmarksが実際に降順を要求している
-          // ことをテストで検証できる(SQL文言の完全一致は見ない)。
-          const isDescending = /desc/i.test(sql);
+          // fixtureはsaved_at昇順で渡す想定。生成SQLに"order by ... desc"が含まれていれば
+          // (orderBy(desc(...))が効いている証拠として)反転して返す。これによりlistBookmarksが
+          // 実際に降順を要求していることをテストで検証できる(SQL文言の完全一致は見ない)。
+          const isDescending = /order by .*desc/i.test(sql);
           return (isDescending ? [...rawRows].reverse() : rawRows) as unknown as T[];
         },
         async run() {

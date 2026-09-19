@@ -81,7 +81,7 @@ app.post(
     tags: ["Auth"],
     summary: "ログアウトする",
     description: "セッションCookieがあれば該当セッションをDBから削除し、Cookieを失効させる。未ログインでも200を返す。",
-    responses: { 200: okResponse },
+    responses: { 200: { ...okResponse, description: "ログアウト完了" } },
   }),
   (c) => handleLogout(c.req.raw, c.env.DB),
 );
@@ -132,7 +132,7 @@ app.put(
       },
     },
     responses: {
-      200: okResponse,
+      200: { ...okResponse, description: "保存成功" },
       400: { description: "配列でない、categoryがホワイトリスト外、またはJSON解析失敗" },
       401: unauthorizedResponse,
     },

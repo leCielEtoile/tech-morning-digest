@@ -160,6 +160,7 @@ interface DigestPayload {
 - **Zodは使わない**: `describeRoute()`にはOpenAPI形式のJSON Schemaを直接渡せるため、Zod依存を新規に増やさず、既存のバリデーションロジックと重複する検証エンジンも持ち込まない(このためスキーマ記述は手書きで、実際のバリデーション関数と食い違わないよう変更時は両方を確認すること)
 - **OpenAPIバージョン**: `hono-openapi`はデフォルトでOpenAPI **3.1.0**を生成する(3.2固有機能を使わない限り3.1のまま)。バージョン文字列を明示的に上書きしないこと
 - **公開エンドポイント**: `GET /api/openapi.json`(spec本体)・`GET /api/docs`(Swagger UI)。どちらも認証不要(APIの形状情報のみで秘匿情報を含まないため)
+- **スキーマ定数のTypeScript上の注意**: `router.ts`の`bookmarkSchema`等、複数箇所で再利用するスキーマ定数はオブジェクト全体に`as const`を付けないこと(`required`が`readonly string[]`になり、openapi-typesの`SchemaObject.required: string[]`と不整合になりコンパイルエラーになる)。代わりに各`type`/`format`等のリテラル値にだけ個別に`as const`を付ける(`type: "string" as const`)。付け忘れると`type`が`string`に広がり、これもコンパイルエラーで検出される(サイレントに壊れることはない)
 
 ### テスト戦略: 3層構成
 

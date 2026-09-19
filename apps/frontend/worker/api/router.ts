@@ -10,7 +10,17 @@ import type { GoogleAuthConfig } from "../auth/google-oauth.js";
 
 const unauthorizedResponse = {
   description: "未ログイン",
-  content: { "application/json": { schema: { type: "object", properties: { error: { type: "string", example: "unauthorized" } } } } },
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/Error" },
+      example: { error: "unauthorized" },
+    },
+  },
+} as const;
+
+const okResponse = {
+  description: "成功",
+  content: { "application/json": { schema: { $ref: "#/components/schemas/Ok" } } },
 } as const;
 
 export interface ApiEnv {
@@ -57,7 +67,10 @@ app.get(
     description: "認可コードをトークンと交換し、ユーザーのfind-or-create・セッション発行を行う。成功・失敗のいずれも/への302で終わる。",
     responses: {
       302: { description: "成功(セッションCookie発行) or 失敗(未認証のまま/へ)" },
-      400: { description: "state/code_verifier不備、または認可コード交換失敗" },
+      400: {
+        description: "state/code_verifier不備、または認可コード交換失敗",
+        content: { "text/plain": { schema: { type: "string" }, example: "不正なリクエストです" } },
+      },
     },
   }),
   (c) => handleCallback(c.req.raw, c.env.DB, googleConfig(c.req.raw, c.env)),
@@ -68,7 +81,7 @@ app.post(
     tags: ["Auth"],
     summary: "ログアウトする",
     description: "セッションCookieがあれば該当セッションをDBから削除し、Cookieを失効させる。未ログインでも200を返す。",
-    responses: { 200: { description: "ログアウト完了" } },
+    responses: { 200: okResponse },
   }),
   (c) => handleLogout(c.req.raw, c.env.DB),
 );
@@ -119,7 +132,7 @@ app.put(
       },
     },
     responses: {
-      200: { description: "保存成功" },
+      200: okResponse,
       400: { description: "配列でない、categoryがホワイトリスト外、またはJSON解析失敗" },
       401: unauthorizedResponse,
     },
@@ -127,13 +140,30 @@ app.put(
   (c) => handlePutPreferences(c.req.raw, c.env.DB),
 );
 
+const bookmarkSchema = {
+  type: "object" as const,
+  required: ["id", "articleLink", "articleTitle", "savedAt"],
+  properties: {
+    id: { type: "string" as const },
+    articleLink: { type: "string" as const },
+    articleTitle: { type: "string" as const },
+    savedAt: { type: "string" as const, format: "date-time" },
+  },
+};
+
 app.get(
   "/api/bookmarks",
   describeRoute({
     tags: ["Bookmarks"],
     summary: "ブックマーク一覧を取得する(保存日時降順)",
     security: [{ cookieAuth: [] }],
-    responses: { 200: { description: "ブックマーク一覧" }, 401: unauthorizedResponse },
+    responses: {
+      200: {
+        description: "ブックマーク一覧",
+        content: { "application/json": { schema: { type: "object", required: ["bookmarks"], properties: { bookmarks: { type: "array", items: bookmarkSchema } } } } },
+      },
+      401: unauthorizedResponse,
+    },
   }),
   (c) => handleListBookmarks(c.req.raw, c.env.DB),
 );
@@ -147,13 +177,23 @@ app.post(
     requestBody: {
       content: {
         "application/json": {
-          schema: { type: "object", required: ["articleLink", "articleTitle"], properties: { articleLink: { type: "string" }, articleTitle: { type: "string" } } },
+          schema: {
+            type: "object",
+            required: ["articleLink", "articleTitle"],
+            properties: {
+              articleLink: { type: "string", maxLength: 2048 },
+              articleTitle: { type: "string", maxLength: 500 },
+            },
+          },
         },
       },
     },
     responses: {
-      201: { description: "追加成功" },
-      400: { description: "不正なbody、またはhttp(s)以外のURLスキーム" },
+      201: {
+        description: "追加成功",
+        content: { "application/json": { schema: { type: "object", required: ["bookmark"], properties: { bookmark: bookmarkSchema } } } },
+      },
+      400: { description: "不正なbody、http(s)以外のURLスキーム、またはarticleLink(2048文字)/articleTitle(500文字)の上限超過" },
       401: unauthorizedResponse,
       409: { description: "上限(10件)に到達" },
     },
@@ -167,7 +207,7 @@ app.delete(
     summary: "ブックマークを削除する",
     description: "id・user_idの両方をWHERE条件にするため、他人のブックマークIDを指定しても削除されない(その場合も200を返す。存在有無を漏らさないため)。",
     security: [{ cookieAuth: [] }],
-    responses: { 200: { description: "削除完了(対象が存在しない/他人の所有物でも200)" }, 401: unauthorizedResponse },
+    responses: { 200: { ...okResponse, description: "削除完了(対象が存在しない/他人の所有物でも200)" }, 401: unauthorizedResponse },
   }),
   (c) => handleDeleteBookmark(c.req.raw, c.env.DB, c.req.param("id")),
 );
@@ -178,7 +218,17 @@ app.get(
     tags: ["ReadState"],
     summary: "既読記事のハッシュ一覧を取得する",
     security: [{ cookieAuth: [] }],
-    responses: { 200: { description: "既読ハッシュ一覧" }, 401: unauthorizedResponse },
+    responses: {
+      200: {
+        description: "既読ハッシュ一覧",
+        content: {
+          "application/json": {
+            schema: { type: "object", required: ["readArticleHashes"], properties: { readArticleHashes: { type: "array", items: { type: "string" } } } },
+          },
+        },
+      },
+      401: unauthorizedResponse,
+    },
   }),
   (c) => handleGetReadState(c.req.raw, c.env.DB),
 );
@@ -191,7 +241,7 @@ app.post(
     requestBody: {
       content: { "application/json": { schema: { type: "object", required: ["articleGuidHash"], properties: { articleGuidHash: { type: "string" } } } } },
     },
-    responses: { 200: { description: "登録完了(既に既読でも200)" }, 400: { description: "不正なbody" }, 401: unauthorizedResponse },
+    responses: { 200: { ...okResponse, description: "登録完了(既に既読でも200)" }, 400: { description: "不正なbody" }, 401: unauthorizedResponse },
   }),
   (c) => handleMarkRead(c.req.raw, c.env.DB),
 );
@@ -203,11 +253,17 @@ app.get(
       info: {
         title: "Tech Morning Digest API",
         version: "1.0.0",
-        description: "アカウント機能(Google OAuthログイン・興味カテゴリ設定・ブックマーク・既読管理)のAPI。",
+        description:
+          "アカウント機能(Google OAuthログイン・興味カテゴリ設定・ブックマーク・既読管理)のAPI。" +
+          "上記いずれのパスにも一致しないリクエストは404( `{\"error\":\"not_found\"}` )を返す。",
       },
       components: {
         securitySchemes: {
           cookieAuth: { type: "apiKey", in: "cookie", name: "session_id" },
+        },
+        schemas: {
+          Error: { type: "object", required: ["error"], properties: { error: { type: "string" } } },
+          Ok: { type: "object", required: ["ok"], properties: { ok: { type: "boolean", example: true } } },
         },
       },
     },

@@ -24,6 +24,10 @@ const { title, dateline } = Astro.props;
 				<a class="masthead__wordmark" href="/">TECH MORNING DIGEST</a>
 				<div class="masthead__meta">
 					{dateline && <span>TOKYO — {dateline}</span>}
+					<span class="masthead__auth" data-auth-status>
+						<a href="/api/auth/login" data-auth-login>ログイン</a>
+						<button type="button" data-auth-logout hidden>ログアウト</button>
+					</span>
 					<nav aria-label="サイト内ナビゲーション"><a href="/archive/">アーカイブ →</a></nav>
 				</div>
 			</header>
@@ -31,5 +35,31 @@ const { title, dateline } = Astro.props;
 				<slot />
 			</main>
 		</div>
+		<script>
+			// ログイン状態はCookieの有無をJSからは判定できない(HttpOnly)ため、認証必須APIを
+			// 1回叩いて401かどうかで判定する。data-auth-status自体はhidden無しでマークアップ
+			// されており、JS無効環境でも「ログイン」リンクは常に見える(実際にクリックすれば
+			// ログインフローは動く)。JS実行後はこのリンク/ボタンの表示・非表示を実際の
+			// セッション状態に合わせて更新するだけでよい。
+			async function initAuthStatus(): Promise<void> {
+				const loginLink = document.querySelector<HTMLAnchorElement>("[data-auth-login]");
+				const logoutButton = document.querySelector<HTMLButtonElement>("[data-auth-logout]");
+				if (!loginLink || !logoutButton) return;
+
+				const response = await fetch("/api/preferences", { method: "GET" });
+				// 2xx以外(401だけでなく500等も含む)は未ログイン扱いにする。
+				// サーバーエラーを「ログイン中」と誤判定しないための明示的な判定。
+				const isLoggedIn = response.ok;
+				loginLink.hidden = isLoggedIn;
+				logoutButton.hidden = !isLoggedIn;
+
+				logoutButton.addEventListener("click", async () => {
+					await fetch("/api/auth/logout", { method: "POST" });
+					location.reload();
+				});
+			}
+
+			initAuthStatus();
+		</script>
 	</body>
 </html>

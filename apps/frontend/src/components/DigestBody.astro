@@ -45,6 +45,9 @@ const dateLabel = formatJstDateLabel(data.date);
 										<p class="pick-reason">{pick.reason}</p>
 										<p class="pick-summary">{pick.summary}</p>
 										<span class="pick-feed">{pick.feedName}</span>
+										<button type="button" class="bookmark-button" data-bookmark-link={pick.link} data-bookmark-title={pick.title}>
+											☆ ブックマーク
+										</button>
 									</li>
 								))}
 							</ol>
@@ -59,6 +62,9 @@ const dateLabel = formatJstDateLabel(data.date);
 											<span class="article-feed">{article.feedName}</span>
 										</div>
 										<p class="article-gist">{article.gist}</p>
+										<button type="button" class="bookmark-button" data-bookmark-link={article.link} data-bookmark-title={article.title}>
+											☆ ブックマーク
+										</button>
 									</li>
 								))}
 							</ul>
@@ -170,5 +176,43 @@ const dateLabel = formatJstDateLabel(data.date);
 		activate(requestedIndex !== -1 ? requestedIndex : 0);
 	}
 
+	/**
+	 * 未ログイン(401)ならログインへ誘導する。ボタンのラベルを差し替えるだけの
+	 * 簡易フィードバックとし、専用のトースト等は作らない(YAGNI)。
+	 */
+	function initBookmarkButtons(): void {
+		const buttons = document.querySelectorAll<HTMLButtonElement>("[data-bookmark-link]");
+		buttons.forEach((button) => {
+			button.addEventListener("click", async () => {
+				const articleLink = button.dataset.bookmarkLink;
+				const articleTitle = button.dataset.bookmarkTitle;
+				if (!articleLink || !articleTitle) return;
+
+				button.disabled = true;
+				const response = await fetch("/api/bookmarks", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ articleLink, articleTitle }),
+				});
+
+				if (response.status === 401) {
+					location.href = "/api/auth/login";
+					return;
+				}
+				if (response.status === 409) {
+					button.textContent = "上限到達";
+					return;
+				}
+				if (!response.ok) {
+					button.textContent = "失敗";
+					button.disabled = false;
+					return;
+				}
+				button.textContent = "保存済み";
+			});
+		});
+	}
+
 	initCategoryTabs();
+	initBookmarkButtons();
 </script>

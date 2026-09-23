@@ -41,7 +41,10 @@ const env = {
   R2_ACCESS_KEY_ID: "akid",
   R2_SECRET_ACCESS_KEY: "secret",
   R2_BUCKET_NAME: "bucket",
-  ASSETS: { fetch: async () => new Response("asset") },
+  GOOGLE_CLIENT_ID: "test-client-id",
+  GOOGLE_CLIENT_SECRET: "test-client-secret",
+  DB: {} as unknown as D1Database,
+  ASSETS: { fetch: async () => new Response("static") },
 } as unknown as Parameters<NonNullable<typeof worker.scheduled>>[1];
 
 const ctx = {} as unknown as Parameters<NonNullable<typeof worker.scheduled>>[2];
@@ -96,6 +99,18 @@ test("scheduled: watchdogはR2が404ならALERT_WEBHOOK_URLへPOSTする", async
   } finally {
     m.restore();
   }
+});
+
+test("fetch: /api/以外はASSETS.fetchにフォールバックする", async () => {
+  const request = new Request("http://localhost/archive/");
+  const response = await worker.fetch!(request, env);
+  assert.equal(await response.text(), "static");
+});
+
+test("fetch: /api/配下はhandleApiRequest(ルーター)を経由する", async () => {
+  const request = new Request("http://localhost/api/auth/login");
+  const response = await worker.fetch!(request, env);
+  assert.equal(response.status, 302);
 });
 
 test("scheduled: 未知のcronはthrowせずfetchも呼ばない", async () => {

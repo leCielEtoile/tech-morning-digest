@@ -107,6 +107,72 @@ interface DigestPayload {
 // を持つ構造に変更した。
 ```
 
+## フロントエンド(`apps/frontend/worker`)の認証・セッション・D1設計
+
+アカウント機能(Google OAuth ログイン・興味カテゴリ・ブックマーク・個人既読状態)の実装で追加された層。
+
+### セッション管理(DB参照型)
+
+- **セッション方式**: JWT ではなく、D1 データベース(`sessions`テーブル)に保存される参照型セッション。各リクエストごとに session ID を Cookie(`session_id`)から読み取り、D1 へ問い合わせしてセッションを検証する(ステートレスではない)
+- **Cookie**: `session_id`(名前固定)、Secure・HttpOnly・SameSite=Lax で設定、有効期限30日
+- **メリット**: JWT トークン漏洩時にサーバー側から即座にセッションを無効化できる、セッション更新時の署名再生成が不要、ユーザー削除・ブロック時の反映が即座。トレードオフとしてスケーリング時の状態管理が必要(本プロジェクトは個人用途のため許容)
+
+### データ最小化ポリシー
+
+- **`users`テーブル**: `id`(PK、内部生成 UUID)・`google_sub`(Google の sub 値、UNIQUE 制約)・`created_at` の3列。email・display_name・profile_picture等は意図的に保存しない
+- **理由**: 将来の料金体系導入・ユーザー削除要件・プライバシー規制対応を想定し、個人情報の保存量を最小限に抑える設計判断。セッションはDB参照型(`sessions`テーブル)で管理し、IDトークンをリクエストごとに再検証することはしない。
+
+### Google OAuth: oauth4webapi を選択した理由
+
+- **採用**: `oauth4webapi`(Node.js 標準化 OAuth/OIDC クライアント、0 依存)
+- **不採用**: Arctic(Lucia Auth が提供する OAuth ラッパー)は 2026 年 7 月に公式で非推奨化された。非推奨ライブラリに新規実装を投資しないため避けた
+- **実装の最小化**: oauth4webapi は ID トークンの `sub` クレーム(Google ユーザー ID)のみ抽出し、その場で `users`テーブルへfind-or-create。userinfoエンドポイント追加 fetch・discovery エンドポイント キャッシング等の最適化は未実装(将来トラフィック実績に基づく検討候補として roadmap に記載)
+
+### 型チェックコマンドの使い分け
+
+- **`pnpm typecheck`**: Astro 標準(`astro check`)で実行。`apps/frontend` の src/ ディレクトリ主体の型チェック。`worker/`ディレクトリは除外設定(worker/tsconfig.json と競合するため)
+- **`pnpm typecheck:worker`**: worker/ 専用。`worker/tsconfig.json`(include: `**/*.ts`)で db/・auth/・api/ 配下の全ファイルをカバー。新規実装時は両方のコマンドで検証すること
+
+### ブックマーク件数上限(MAX_BOOKMARKS_PER_USER)
+
+- **位置づけ**: 無料プラン時点での上限は 10 件(`worker/db/bookmarks.ts` に定義)
+- **有料プラン拡張予定**: 将来プラン別料金体系を導入する際、同定数をプラン別の値に分岐させる想定。上限緩和後も超過分については「プラン超過」エラーを返すロジックへ変更する予定
+- **理由**: D1 の無料枠制限(ストレージ・読み書き数)を考慮した設計値
+
+### D1スキーマ管理: Drizzle ORM
+
+- **採用理由**: 有料プラン導入時にテーブルを追加していく前提で、型定義とマイグレーション生成を単一の`schema.ts`に紐付けることで、手書きSQLとTypeScriptの型定義が別々にドリフトする(型だけ更新してスキーマ更新を忘れる、あるいはその逆)リスクを構造的に減らす判断
+- **正は`worker/db/schema.ts`**: 生SQLの`schema.sql`は廃止済み。スキーマを変更する際は`schema.ts`を編集したうえで`npx drizzle-kit generate`を実行し、`migrations/`配下に新しいマイグレーションファイルを生成すること(手でSQLファイルを追加しない)
+- **マイグレーション適用は`wrangler d1 migrations apply`**: `drizzle-kit`自身のマイグレーター(`d1-http`ドライバ)は使わない設計(`drizzle.config.ts`にCloudflareの認証情報を持たせていない)。ローカルは`--local`、本番は`--remote`フラグで使い分ける
+- **マイグレーションのファイル配置**: 導入時点(drizzle-kit 0.31.10)ではフラット配置(`migrations/0000_<name>.sql` + `migrations/meta/`)で生成される。これは`wrangler d1 migrations apply`がデフォルトで期待する配置(`migrations_dir`直下のトップレベル`.sql`ファイル)と一致するため、`wrangler.jsonc`には`migrations_dir`のみ設定し`migrations_pattern`は付与していない。**drizzle-kitのバージョンアップでネスト配置(`migrations/0001_x/migration.sql`)に変わった場合は、`wrangler.jsonc`に`migrations_pattern: "migrations/*/migration.sql"`の追加が必要になる**(Cloudflare公式ドキュメントで確認済みの対応方法)
+
+### テスト時の重要な注意: DrizzleのD1ドライバは`.raw()`を使う
+
+- Drizzleの単純な`select()`(`.limit()`付き含む)は、`db.prepare(sql).bind(...).first()`でも`.all()`でもなく、D1の**`.raw()`**(列を位置ベースの配列`unknown[][]`で返す生API)経由で実行される(`insert`/`update`/`delete`は従来通り`.run()`)。これは実装時に実際のエラーメッセージ(`this.stmt.bind(...).raw is not a function`)から発見した挙動で、ドキュメントには明記されていない
+- そのため各`worker/db/*.test.ts`の`fakeDb`は`.raw()`を実装する必要がある。fixtureの行オブジェクトを、対象テーブルの`schema.ts`宣言順(=旧`schema.sql`のカラム順)で位置配列に変換したものを返すこと
+- `count()`集計クエリ(`orm.select({ value: count() })...`、`bookmarks.ts`の`addBookmark`が使用)も同様に`.raw()`経由。SQL文言に`count(`が含まれるかで集計クエリかどうかを判定するフェイク実装にしている
+- `db.batch([...])`(`preferences.ts`の`setCategoryPrefs`が使用)はD1の`.batch()`をそのまま呼ぶため、既存の`fakeDb`の`batch()`実装は変更不要
+- **SQL文字列の完全一致チェックはしないこと**: Drizzleが生成するSQL文言(カラムの引用符・プレースホルダ形式等)は手書きSQLと異なる。代わりに、bindされたパラメータの値・戻り値・(`desc`/`conflict`等の)部分文字列の有無で検証すること
+
+### API仕様: OpenAPI 3.1 + Swagger UI(`hono-openapi`)
+
+- **採用理由**: `@hono/zod-openapi`は`createRoute()`/`OpenAPIHono`への書き換えが必要で、「ハンドラーはHonoに依存させない」という既存設計(`router.ts`のコメント参照)と衝突する。`hono-openapi`の`describeRoute()`はmiddlewareとして既存の`app.get/post/put/delete(...)`に追記するだけで済み、ハンドラー本体・既存の手書きバリデーション(`isCategoryPrefArray`等)は無改修
+- **Zodは使わない**: `describeRoute()`にはOpenAPI形式のJSON Schemaを直接渡せるため、Zod依存を新規に増やさず、既存のバリデーションロジックと重複する検証エンジンも持ち込まない(このためスキーマ記述は手書きで、実際のバリデーション関数と食い違わないよう変更時は両方を確認すること)
+- **OpenAPIバージョン**: `hono-openapi`はデフォルトでOpenAPI **3.1.0**を生成する(3.2固有機能を使わない限り3.1のまま)。バージョン文字列を明示的に上書きしないこと
+- **公開エンドポイント**: `GET /api/openapi.json`(spec本体)・`GET /api/docs`(Swagger UI)。どちらも認証不要(APIの形状情報のみで秘匿情報を含まないため)
+- **スキーマ定数のTypeScript上の注意**: `router.ts`の`bookmarkSchema`等、複数箇所で再利用するスキーマ定数はオブジェクト全体に`as const`を付けないこと(`required`が`readonly string[]`になり、openapi-typesの`SchemaObject.required: string[]`と不整合になりコンパイルエラーになる)。代わりに各`type`/`format`等のリテラル値にだけ個別に`as const`を付ける(`type: "string" as const`)。付け忘れると`type`が`string`に広がり、これもコンパイルエラーで検出される(サイレントに壊れることはない)
+
+### テスト戦略: 3層構成
+
+1. **`pnpm test`**(node:test): D1をモックした`fakeDb`によるロジック単体テスト。高速だが実DBの挙動(実際にDELETEが効くか等)までは保証しない
+2. **`pnpm test:e2e`**(`@cloudflare/vitest-plugin`。旧`@cloudflare/vitest-pool-workers`からリネーム済みのパッケージ、vitest `^4.1.0`必須(vitest 5系はpeerDependencies違反になるため使わない)): 実workerd + 実(ローカル)D1上で`/api/*`を`SELF.fetch()`で実際に叩くローカルe2e。設定は`vitest.config.ts`、テスト本体は`e2e/api.e2e.test.ts`、マイグレーション適用は`e2e/setup.ts`(`applyD1Migrations`)。R2・Google実クレデンシャルは不要(GOOGLE_CLIENT_ID/SECRETは`vitest.config.ts`内でテスト専用ダミー値をminiflareバインディングとして上書き)。認証はGoogle OAuthを経由せず、実装済みの`findOrCreateUserByGoogleSub`/`createSession`を`env.DB`に対して直接呼び出してセッションをseedする
+3. **`pnpm test:e2e:prod`**(素の`fetch()`、node:test): 実際にデプロイされたURL(`PROD_BASE_URL`環境変数)へのスモークテスト。未認証パスの401/404・OAuthログイン開始のリダイレクト構築(PKCE/Cookie属性)・ドキュメント公開のみを確認し、認証済みAPIの実DB往復は対象外(実データを汚すリスクがあるため)。`PROD_BASE_URL`未設定時は全テストをスキップする(ローカル実行を妨げないため)
+
+**実装上の注意点(躓きやすい箇所)**:
+- `cloudflare:test`の`env`は型上`Cloudflare.Env`(既定で空の`interface Env {}`)になる。このプロジェクトは`wrangler types`によるコード生成を導入していないため、`env`は`ApiEnv`(`worker/api/router.ts`)へ`as unknown as`でキャストして使う(既存の`fakeDb`系テストが`D1Database`へキャストしているのと同じパターン)
+- `e2e/`・`e2e-prod/`ディレクトリは`worker/tsconfig.json`の`include`に追加してカバーし(`pnpm typecheck:worker`が検証する)、逆にAstro側の`apps/frontend/tsconfig.json`の`exclude`にも追加している(`worker`と同じ理由。Astroのtsconfigは`@cloudflare/workers-types`を持たないため、`Response.json<T>()`等の型が解決できずに誤検出する)
+- `pnpm test`(既存のnode:test)のglob(`worker/**/*.test.ts`)と衝突しないよう、e2eテストは`worker/`の外(`apps/frontend/e2e/`)に配置している
+
 ## 実装上の重要な不変条件
 
 これらはspec.mdに明記されていないか簡潔にしか触れられていない、実装時に発見・決定した制約。**変更する際は理由を理解した上で行うこと。**

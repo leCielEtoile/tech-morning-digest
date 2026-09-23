@@ -2,6 +2,7 @@ import { AwsClient } from "aws4fetch";
 import { toJstDateString } from "@rss-summary/shared";
 import { isDigestFresh } from "./digest-fresh.js";
 import { postWithRetry } from "./retry.js";
+import { handleApiRequest } from "./api/router.js";
 
 /** Worker ランタイムに注入する変数・シークレット。ダッシュボードの Variables and Secrets で設定する。 */
 interface Env {
@@ -11,6 +12,9 @@ interface Env {
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  DB: D1Database;
   ASSETS: Fetcher;
 }
 
@@ -83,7 +87,9 @@ export default {
     }
     console.error(`未知のcron: ${controller.cron}`);
   },
-  fetch(request: Request, env: Env): Response | Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const apiResponse = await handleApiRequest(request, env);
+    if (apiResponse) return apiResponse;
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;

@@ -17,6 +17,7 @@ const digests = defineCollection({
     threeLines: z.array(z.string()),
     categories: z.array(
       z.object({
+        genre: z.enum(["テック", "論文"]).default("テック"),
         category: z.string(),
         picks: z.array(digestArticleRef.extend({ reason: z.string(), summary: z.string() })),
         others: z.array(digestArticleRef.extend({ gist: z.string() })),

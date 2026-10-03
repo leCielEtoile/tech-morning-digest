@@ -18,6 +18,7 @@ export interface DigestPayload {
   hasNewArticles: boolean;
   threeLines: string[];
   categories: {
+    genre?: string;
     category: string;
     picks: (DigestArticleRef & { reason: string; summary: string })[];
     others: (DigestArticleRef & { gist: string })[];
@@ -55,6 +56,9 @@ export function isDigestPayload(value: unknown): value is DigestPayload {
         typeof c === "object" &&
         c !== null &&
         typeof (c as Record<string, unknown>)["category"] === "string" &&
+        (!("genre" in c) ||
+          (c as Record<string, unknown>)["genre"] === "テック" ||
+          (c as Record<string, unknown>)["genre"] === "論文") &&
         Array.isArray((c as Record<string, unknown>)["picks"]) &&
         ((c as Record<string, unknown>)["picks"] as unknown[]).every(
           (p) =>

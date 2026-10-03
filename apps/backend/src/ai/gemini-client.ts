@@ -50,6 +50,10 @@ const MAX_SUMMARY_CHARS: Record<Genre, number> = { テック: 300, 論文: 600 }
  * 連続するGemini呼び出しの間隔。無料枠は5 RPM(2026-10-03にAI Studioで確認)のため、
  * 応答時間を含めても超えないよう12秒超を空ける。
  */
+// Workers Buildsのビルド上限は20分。応答が返らない・極端に遅いリクエストが
+// ビルド全体(とテックのダイジェスト)を巻き込まないよう、1リクエストと生成全体に上限を設ける。
+const REQUEST_TIMEOUT_MS = 180_000;
+const DEFAULT_TIME_BUDGET_MS = 12 * 60 * 1000;
 const DEFAULT_REQUEST_INTERVAL_MS = 13000;
 
 interface RawCategoryPick {
@@ -304,13 +308,15 @@ const MAX_PICKS_PER_CATEGORY = 3;
 export interface GenerateDigestOptions {
   /** 連続するGemini呼び出しの間隔(ms)。テストでは0を指定する */
   requestIntervalMs?: number;
+  /** 分類・カテゴリ別生成を始めてよい経過時間(ms)。超過後は該当分を掲載せず、3行生成のみ実行する */
+  timeBudgetMs?: number;
   /** 用途別のモデル優先リスト。省略時は環境変数・既定値から解決する */
   models?: GeminiModels;
 }
 
 export interface GenerateDigestOutcome {
   digest: GeminiDigestResult;
-  /** ダイジェストに実際に掲載した記事。呼び出し元はこれだけを既読化する(失敗カテゴリ分は翌日に持ち越す) */
+  /** ダイジェストに実際に掲載した記事。呼び出し元はこれだけを既読化する(失敗ジャンル・カテゴリ分は既読化されない) */
   processedArticles: Article[];
 }
 
@@ -326,11 +332,21 @@ class DailyQuotaError extends Error {
   }
 }
 
-/** 同じモデルでの再試行を使い切った一時エラー・日次枠超過・存在しないモデル(404)は次のモデルへ回す */
+/** 空・不正なJSON・スキーマ不一致(途中切れ含む)の応答。別モデルなら成功しうるため次のモデルへ回す */
+class InvalidResponseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidResponseError";
+  }
+}
+
+/** 同じモデルでの再試行を使い切った一時エラー・日次枠超過・存在しないモデル(404)・タイムアウト・不正な応答は次のモデルへ回す */
 function shouldFallback(error: unknown): boolean {
   return (
     error instanceof RetryableFetchError ||
     error instanceof DailyQuotaError ||
+    error instanceof InvalidResponseError ||
+    (error instanceof DOMException && error.name === "TimeoutError") ||
     (error instanceof Error && error.message.startsWith("HTTP 404"))
   );
 }
@@ -346,6 +362,7 @@ async function callModel<T>(
     async () => {
       const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
         method: "POST",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey,
@@ -368,12 +385,17 @@ async function callModel<T>(
       const data = (await validated.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) {
-        throw new Error("Gemini APIのレスポンスにテキストが含まれていません");
+        throw new InvalidResponseError("Gemini APIのレスポンスにテキストが含まれていません");
       }
 
-      const parsed: unknown = JSON.parse(text);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new InvalidResponseError("Gemini APIのレスポンスがJSONとして解釈できません");
+      }
       if (!guard(parsed)) {
-        throw new Error("Gemini APIのレスポンスが期待するスキーマと一致しません");
+        throw new InvalidResponseError("Gemini APIのレスポンスが期待するスキーマと一致しません");
       }
       return parsed;
     },
@@ -440,6 +462,9 @@ export async function generateDigestData(
 ): Promise<GenerateDigestOutcome> {
   const intervalMs = options.requestIntervalMs ?? DEFAULT_REQUEST_INTERVAL_MS;
   const models = options.models ?? resolveModels();
+  const timeBudgetMs = options.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
+  const startedAt = Date.now();
+  const budgetExceeded = (): boolean => Date.now() - startedAt >= timeBudgetMs;
   const idToArticle = new Map<number, Article>(articles.map((article, id) => [id, article]));
   let isFirstCall = true;
   const paced = async <T>(call: () => Promise<T>): Promise<T> => {
@@ -454,6 +479,10 @@ export async function generateDigestData(
     const categories = CATEGORY_ORDER_BY_GENRE[genre];
     const entries = articles.flatMap((article, id) => (article.genre === genre ? [{ id, title: article.title }] : []));
     if (entries.length === 0) continue;
+    if (budgetExceeded()) {
+      console.warn(`[digest] 時間予算超過のためジャンル「${genre}」を今回は掲載しません。`);
+      continue;
+    }
 
     const categoryById = new Map<number, Category>();
     try {
@@ -463,13 +492,17 @@ export async function generateDigestData(
         for (const [id, category] of classified) categoryById.set(id, category);
       }
     } catch (error) {
-      console.warn(`[digest] ジャンル「${genre}」の分類に失敗。今回は掲載せず翌日に持ち越します。`, error);
+      console.warn(`[digest] ジャンル「${genre}」の分類に失敗。今回は掲載しません。`, error);
       continue;
     }
 
     for (const category of categories) {
       const ids = [...categoryById].filter(([, c]) => c === category).map(([id]) => id);
       if (ids.length === 0) continue;
+      if (budgetExceeded()) {
+        console.warn(`[digest] 時間予算超過のためカテゴリ「${category}」を今回は掲載しません。`);
+        continue;
+      }
       const promptArticles: CategoryPromptArticle[] = ids.map((id) => {
         const article = idToArticle.get(id) as Article;
         return {
@@ -497,7 +530,7 @@ export async function generateDigestData(
           raw.categorizedArticles.push({ ...g, category });
         }
       } catch (error) {
-        console.warn(`[digest] カテゴリ「${category}」の生成に失敗。今回は掲載せず翌日に持ち越します。`, error);
+        console.warn(`[digest] カテゴリ「${category}」の生成に失敗。今回は掲載しません。`, error);
       }
     }
   }

@@ -278,7 +278,6 @@ a:focus-visible {
   color: var(--signal);
 }
 
-/* カテゴリタブ: 横スクロールのページ内リンク。JS有効時はタブ切り替えの見た目になる */
 .genre-tabs {
 	display: flex;
 	gap: 0.5rem;
@@ -306,6 +305,7 @@ a:focus-visible {
 	margin: 0.75rem 0 0.5rem;
 }
 
+/* カテゴリタブ: 横スクロールのページ内リンク。JS有効時はタブ切り替えの見た目になる */
 .category-tabs {
   position: sticky;
   top: 0;

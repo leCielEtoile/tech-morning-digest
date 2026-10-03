@@ -129,6 +129,10 @@ function geminiResponse(body: unknown): Response {
   );
 }
 
+function geminiText(text: string): Response {
+  return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
+}
+
 test("generateDigestData: 分類→カテゴリ別→3行の順に呼び、失敗カテゴリは未処理として返す", async () => {
   const articles = [makeArticle("A"), makeArticle("B"), makeArticle("C")];
   const original = globalThis.fetch;
@@ -309,6 +313,74 @@ test("generateDigestData: 日次枠超過(429 PerDay)と404は即座に次のモ
     const { processedArticles } = await generateDigestData(articles, "key", { requestIntervalMs: 0, models });
     assert.deepEqual(processedArticles, [articles[0]]);
     assert.deepEqual(calledModels.slice(0, 3), ["m1", "m2", "m3"]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+function succeedingMock(onModel: (model: string) => Response | Promise<Response> | null): typeof fetch {
+  return (async (url: unknown, init?: RequestInit) => {
+    const model = /models\/([^:]+):/.exec(String(url))?.[1] ?? "";
+    const special = await onModel(model);
+    if (special) return special;
+    const prompt = JSON.parse(String(init?.body)).contents[0].parts[0].text as string;
+    if (prompt.startsWith("以下は記事のid・タイトル一覧")) {
+      return geminiResponse({ classifications: [{ articleId: 0, category: "開発・プログラミング" }] });
+    }
+    if (prompt.includes("カテゴリ「開発・プログラミング」")) {
+      return geminiResponse({ picks: [], gists: [{ articleId: 0, gist: "あらすじ" }] });
+    }
+    return geminiResponse({ threeLines: ["1", "2", "3"] });
+  }) as typeof fetch;
+}
+
+test("generateDigestData: リクエストのタイムアウトは次のモデルへフォールバックする", async () => {
+  const articles = [makeArticle("A")];
+  const original = globalThis.fetch;
+  const calledModels: string[] = [];
+  globalThis.fetch = succeedingMock((model) => {
+    calledModels.push(model);
+    if (model === "m1") throw new DOMException("timeout", "TimeoutError");
+    return null;
+  });
+  try {
+    const models = { classify: ["m1", "m2"], generate: ["m1", "m2"] };
+    const { processedArticles } = await generateDigestData(articles, "key", { requestIntervalMs: 0, models });
+    assert.deepEqual(processedArticles, [articles[0]]);
+    assert.ok(calledModels.includes("m2"));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("generateDigestData: 不正なJSONの応答は次のモデルへフォールバックする", async () => {
+  const articles = [makeArticle("A")];
+  const original = globalThis.fetch;
+  const calledModels: string[] = [];
+  globalThis.fetch = succeedingMock((model) => {
+    calledModels.push(model);
+    return model === "m1" ? geminiText("{") : null;
+  });
+  try {
+    const models = { classify: ["m1", "m2"], generate: ["m1", "m2"] };
+    const { processedArticles } = await generateDigestData(articles, "key", { requestIntervalMs: 0, models });
+    assert.deepEqual(processedArticles, [articles[0]]);
+    assert.ok(calledModels.includes("m2"));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("generateDigestData: 時間予算を超過していると分類・生成を試みず例外になる", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response("", { status: 400 });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(generateDigestData([makeArticle("A")], "key", { requestIntervalMs: 0, timeBudgetMs: 0 }));
+    assert.equal(calls, 0);
   } finally {
     globalThis.fetch = original;
   }

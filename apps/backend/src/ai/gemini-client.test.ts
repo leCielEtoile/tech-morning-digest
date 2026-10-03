@@ -268,8 +268,8 @@ test("generateDigestData: 論文の分類が失敗してもテックは掲載し
 
 test("resolveModels: 環境変数で上書きでき、フォールバックは重複を除いて後ろに並ぶ", () => {
   const defaults = resolveModels({});
-  assert.deepEqual(defaults.classify, ["gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash"]);
-  assert.deepEqual(defaults.generate, ["gemini-3.6-flash", "gemini-3-flash-preview", "gemini-2.5-flash"]);
+  assert.deepEqual(defaults.classify, ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]);
+  assert.deepEqual(defaults.generate, ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]);
 
   const custom = resolveModels({
     GEMINI_MODEL: "gemini-3-flash-preview",

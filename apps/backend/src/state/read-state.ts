@@ -49,6 +49,37 @@ export function filterNewArticles<T extends { feedName: string; guid: string }>(
   return articles.filter((article) => !(computeGuidHash(article.feedName, article.guid) in state));
 }
 
+/** 前回実行の取りこぼし防止用の余裕。GUID重複排除があるため広げても二重掲載にはならない */
+export const PUBLISH_WINDOW_MARGIN_MS = 6 * 60 * 60 * 1000;
+
+/** 既読stateの最新の既読日時=前回成功実行時刻(ms)。有効なエントリがなければnull */
+export function lastRunAtMs(state: ReadState): number | null {
+  let latest: number | null = null;
+  for (const readAt of Object.values(state)) {
+    const ms = Date.parse(readAt);
+    if (!Number.isNaN(ms) && (latest === null || ms > latest)) latest = ms;
+  }
+  return latest;
+}
+
+/**
+ * 前回成功実行時刻(−余裕)より後に公開された記事のみを返す。pubDateが取得できない記事は
+ * 除外せず残す。stateが空(初回など)の場合は絞り込まない。
+ */
+export function filterPublishedSinceLastRun<T extends { pubDate: string | null }>(
+  articles: T[],
+  state: ReadState,
+): T[] {
+  const lastMs = lastRunAtMs(state);
+  if (lastMs === null) return articles;
+  const thresholdMs = lastMs - PUBLISH_WINDOW_MARGIN_MS;
+  return articles.filter((article) => {
+    if (article.pubDate === null) return true;
+    const ms = Date.parse(article.pubDate);
+    return Number.isNaN(ms) || ms > thresholdMs;
+  });
+}
+
 /** 指定した記事群を既読化した新しいReadStateを返す(引数のstateは変更しない) */
 export function markAsRead<T extends { feedName: string; guid: string }>(
   state: ReadState,

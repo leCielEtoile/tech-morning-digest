@@ -186,6 +186,9 @@ interface DigestPayload {
 7. **R2オブジェクトが存在しない日はビルドエラーにしない**(`apps/frontend/src/lib/digests-loader.ts`): 生成ビルド未実行日・stateなし初回デプロイ等で該当日のJSONが無いのは正常系。404を握りつぶしてスキップする設計を崩さないこと。
 8. **フロントエンドのR2アクセスは読み取り専用**(`apps/frontend/src/lib/r2-client.ts`): バックエンドの`r2-client.ts`(書き込み用)とは別モジュール。GETのみで、PUTする権限をフロントエンドのビルド環境に持たせる必要はない(最小権限の原則。R2トークンを分ける場合はRead-onlyで発行する)。
 9. **R2の30日ライフサイクルとフロントエンド表示の14日は別軸**: R2側の自動削除(`wrangler r2 bucket lifecycle`)はストレージコスト管理、フロントエンドの`ARCHIVE_DAYS`は表示範囲の方針。どちらか一方だけを変更しても他方に自動連動しないため、意図的に変える場合は両方を確認すること。
+10. **Gemini生成は3段階に分割**(`ai/gemini-client.ts` の `generateDigestData`、2026-10-03変更): 単一の巨大リクエスト(約340件)が429/503で連続失敗したため分割した。(1) タイトルのみ(URL・概要なし)を`CLASSIFY_CHUNK_SIZE`(100)件ずつ送ってカテゴリ分類、(2) カテゴリごとにpicks+あらすじ生成(概要は300文字まで)、(3) picksから今日の3行を生成。リクエスト間は4秒空ける(RPM対策)。分類・3行の失敗、または全カテゴリ失敗は例外(従来どおり前日ページ維持+`exitCode=1`)。**一部カテゴリのみ失敗した場合はそのカテゴリを掲載せず、その記事は既読化しない**(`GenerateDigestOutcome.processedArticles`のみ`markAsRead`する)ので翌日に持ち越される。
+11. **新着は前回成功実行以降の公開分に絞る**(`state/read-state.ts` の `filterPublishedSinceLastRun`): 前回成功時刻は既読stateの`max(既読日時)`で代用し(形式変更なし)、`pubDate > 前回 − 6時間`(`PUBLISH_WINDOW_MARGIN_MS`)または`pubDate`がnullの記事のみ対象にする。余裕を取っても既読GUID重複排除があるため二重掲載しない。stateが空なら絞り込まない。古い未読記事は既読化せず放置(プルーニングで消える)。実行時刻やcronのズレに依存しないよう、固定の24時間窓やJST暦日は使わないこと。
+12. **CIのR2依存ステップはsecrets未設定時にスキップ**(`.github/workflows/ci.yml`の`HAS_R2_SECRETS`): Dependabot PR・フォークPRはrepository secretsが渡されず、`astro check`(コンテンツ同期でR2アクセス)とbuildが必ず失敗するため。`if`では`secrets`を直接参照できないのでjob envで判定している。
 
 ## バージョン固定方針(2026-08-02、LLM学習データのカットオフ対策として実施)
 

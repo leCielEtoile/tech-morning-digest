@@ -5,6 +5,7 @@ import { fetchAllFeeds } from "./fetch/feed-fetcher.js";
 import { getR2Text, uploadDigestJson, type R2Config } from "./publish/r2-client.js";
 import {
   filterNewArticles,
+  filterPublishedSinceLastRun,
   loadReadState,
   markAsRead,
   pruneReadState,
@@ -81,7 +82,8 @@ async function main(): Promise<void> {
   }
   console.log(`[digest] 取得記事数(全フィード合計): ${allArticles.length}`);
 
-  const newArticles = filterNewArticles(allArticles, state);
+  // 前回成功実行以降に公開された記事に絞る。古い未読記事は既読化せず放置(プルーニングで消える)
+  const newArticles = filterPublishedSinceLastRun(filterNewArticles(allArticles, state), state);
   console.log(`[digest] 新着記事数: ${newArticles.length}`);
 
   if (newArticles.length === 0) {
@@ -96,9 +98,9 @@ async function main(): Promise<void> {
   }
 
   console.log("[digest] Gemini APIでダイジェストを生成中...");
-  let digest: Awaited<ReturnType<typeof generateDigestData>>;
+  let outcome: Awaited<ReturnType<typeof generateDigestData>>;
   try {
-    digest = await generateDigestData(newArticles, config.geminiApiKey);
+    outcome = await generateDigestData(newArticles, config.geminiApiKey);
   } catch (error) {
     // Gemini生成が全リトライ失敗した場合、前日ページを維持し既読化もしない(spec.md 7章)。
     // 新着記事は翌日以降も新着として再評価される。プロセスを非ゼロ終了させてビルドを失敗させ、
@@ -109,15 +111,15 @@ async function main(): Promise<void> {
   }
 
   console.log("[digest] R2へアップロード中...");
-  const payload = buildDigestPayload({ dateLabel, now, digest });
+  const payload = buildDigestPayload({ dateLabel, now, digest: outcome.digest });
   await uploadDigestJson(config.r2, objectKey, JSON.stringify(payload));
 
   // R2書き込みが成功した時点でその日の記事内容は確定しているため、既読化を行う。
   console.log("[digest] 既読状態を更新中...");
-  const updatedState = pruneReadState(markAsRead(state, newArticles, now), now);
+  const updatedState = pruneReadState(markAsRead(state, outcome.processedArticles, now), now);
   await saveReadState(config.r2, updatedState);
 
-  console.log(`[digest] 完了。新着${newArticles.length}件を掲載しました`);
+  console.log(`[digest] 完了。新着${newArticles.length}件中${outcome.processedArticles.length}件を掲載しました`);
 }
 
 export { main };

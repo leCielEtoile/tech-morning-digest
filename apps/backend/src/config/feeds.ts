@@ -1,4 +1,6 @@
-export type Category =
+export type Genre = "テック" | "論文";
+
+export type TechCategory =
   | "クラウド・インフラ"
   | "開発・プログラミング"
   | "ガジェット・ハードウェア"
@@ -6,12 +8,22 @@ export type Category =
   | "カルチャー・海外トレンド"
   | "個人ブログ・コラム";
 
+export type PaperCategory = "AI・機械学習" | "自然言語処理" | "コンピュータビジョン" | "その他";
+
+export type Category = TechCategory | PaperCategory;
+
 export type FeedFormat = "rss1.0" | "rss2.0" | "atom";
 
 export interface FeedDefinition {
   name: string;
   url: string;
   format: FeedFormat;
+  /** 省略時は「テック」 */
+  genre?: Genre;
+  /** 省略時は MAX_ITEMS_PER_FEED */
+  maxItems?: number;
+  /** arXivフィード用。descriptionの `Announce Type: new` の論文だけを残す(replace/crossは既出論文の再掲のため除外) */
+  arxivNewOnly?: boolean;
 }
 
 // spec.md 3章を反映。URLは2026-08-02に実アクセスで確認済み。
@@ -38,17 +50,32 @@ export const FEEDS: FeedDefinition[] = [
   { name: "Zenn", url: "https://zenn.dev/feed", format: "rss2.0" },
   { name: "gihyo", url: "https://gihyo.jp/feed/rss2", format: "rss2.0" },
   { name: "はてなブログ(横断)", url: "https://b.hatena.ne.jp/hotentry/it.rss", format: "rss1.0" },
+  {
+    name: "arXiv (cs.AI/CL/CV/LG)",
+    url: "https://rss.arxiv.org/rss/cs.AI+cs.CL+cs.CV+cs.LG",
+    format: "rss2.0",
+    genre: "論文",
+    maxItems: 1000,
+    arxivNewOnly: true,
+  },
 ];
 
-// カテゴリの表示順(spec.md 4章・5章の並び順)。Geminiの分類結果をこの順序でグルーピングする。
-export const CATEGORY_ORDER: Category[] = [
-  "クラウド・インフラ",
-  "開発・プログラミング",
-  "ガジェット・ハードウェア",
-  "総合IT・テックニュース",
-  "カルチャー・海外トレンド",
-  "個人ブログ・コラム",
-];
+// ジャンルとカテゴリの表示順。Geminiの分類結果をこの順序でグルーピングする。
+export const GENRE_ORDER: Genre[] = ["テック", "論文"];
+
+export const CATEGORY_ORDER_BY_GENRE: Record<Genre, Category[]> = {
+  テック: [
+    "クラウド・インフラ",
+    "開発・プログラミング",
+    "ガジェット・ハードウェア",
+    "総合IT・テックニュース",
+    "カルチャー・海外トレンド",
+    "個人ブログ・コラム",
+  ],
+  論文: ["AI・機械学習", "自然言語処理", "コンピュータビジョン", "その他"],
+};
+
+export const ALL_CATEGORIES: Category[] = GENRE_ORDER.flatMap((genre) => CATEGORY_ORDER_BY_GENRE[genre]);
 
 // 1フィードあたりの取得件数上限(spec.md 6章のフェイルセーフ設計)
 export const MAX_ITEMS_PER_FEED = 50;

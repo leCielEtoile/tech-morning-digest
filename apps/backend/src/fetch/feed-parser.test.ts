@@ -78,3 +78,54 @@ test("タイトルまたはリンクがないアイテムはスキップされ�
   assert.equal(articles.length, 1);
   assert.equal(articles[0]!.title, "正常な記事");
 });
+
+const ARXIV_FEED: FeedDefinition = {
+  name: "arXiv",
+  url: "https://rss.arxiv.org/rss/cs.AI",
+  format: "rss2.0",
+  genre: "論文",
+  arxivNewOnly: true,
+};
+
+function arxivItem(id: string, type: string): string {
+  return `<item><title>Paper ${id}</title><link>https://arxiv.org/abs/${id}</link><guid isPermaLink="false">oai:arXiv.org:${id}</guid>
+<description>arXiv:${id} Announce Type: ${type}
+Abstract: We study ${id}.</description><pubDate>Mon, 06 Oct 2026 00:00:00 -0400</pubDate></item>`;
+}
+
+test("arXivフィード: Announce Type: new のみを残し、接頭辞を除いたアブストラクトをsummaryにする", async () => {
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+${arxivItem("2610.00001v1", "new")}
+${arxivItem("2610.00002v1", "cross")}
+${arxivItem("2610.00003v2", "replace")}
+${arxivItem("2610.00004v1", "replace-cross")}
+</channel></rss>`;
+
+  const articles = await parseFeedXml(xml, ARXIV_FEED);
+
+  assert.equal(articles.length, 1);
+  assert.equal(articles[0]!.genre, "論文");
+  assert.equal(articles[0]!.summary, "We study 2610.00001v1.");
+});
+
+test("arXivフィード: Announce Typeが読み取れない形式変更時は取りこぼし防止のため残す", async () => {
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>No type</title><link>https://arxiv.org/abs/x</link><guid>x</guid><description>Plain abstract.</description></item>
+</channel></rss>`;
+
+  const articles = await parseFeedXml(xml, ARXIV_FEED);
+
+  assert.equal(articles.length, 1);
+  assert.equal(articles[0]!.summary, "Plain abstract.");
+});
+
+test("genre未指定のフィードは「テック」になる", async () => {
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>T</title><link>https://example.com/t</link><guid>t</guid></item>
+</channel></rss>`;
+  const feed: FeedDefinition = { name: "Test", url: "https://example.com", format: "rss2.0" };
+
+  const articles = await parseFeedXml(xml, feed);
+
+  assert.equal(articles[0]!.genre, "テック");
+});

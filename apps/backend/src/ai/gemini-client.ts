@@ -16,7 +16,8 @@ const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models
 // モデルIDは提供終了に備えて環境変数で差し替え可能にする。
 const DEFAULT_GENERATE_MODEL = "gemini-3.6-flash";
 const DEFAULT_CLASSIFY_MODEL = "gemini-2.5-flash-lite";
-const DEFAULT_FALLBACK_MODELS = "gemini-3.5-flash,gemini-2.5-flash";
+// gemini-3-flash-preview は、無料枠を AI Studio で確認済み(2026-10-03)の「Gemini 3 Flash」のプレビュー版ID。
+const DEFAULT_FALLBACK_MODELS = "gemini-3-flash-preview,gemini-2.5-flash";
 
 export interface GeminiModels {
   classify: string[];

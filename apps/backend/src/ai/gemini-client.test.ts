@@ -268,16 +268,16 @@ test("generateDigestData: 論文の分類が失敗してもテックは掲載し
 
 test("resolveModels: 環境変数で上書きでき、フォールバックは重複を除いて後ろに並ぶ", () => {
   const defaults = resolveModels({});
-  assert.deepEqual(defaults.classify, ["gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-2.5-flash"]);
-  assert.deepEqual(defaults.generate, ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"]);
+  assert.deepEqual(defaults.classify, ["gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash"]);
+  assert.deepEqual(defaults.generate, ["gemini-3.6-flash", "gemini-3-flash-preview", "gemini-2.5-flash"]);
 
   const custom = resolveModels({
-    GEMINI_MODEL: "gemini-3.5-flash",
+    GEMINI_MODEL: "gemini-3-flash-preview",
     GEMINI_CLASSIFY_MODEL: "x-lite",
-    GEMINI_FALLBACK_MODELS: "gemini-3.5-flash, y",
+    GEMINI_FALLBACK_MODELS: "gemini-3-flash-preview, y",
   });
-  assert.deepEqual(custom.generate, ["gemini-3.5-flash", "y"]);
-  assert.deepEqual(custom.classify, ["x-lite", "gemini-3.5-flash", "y"]);
+  assert.deepEqual(custom.generate, ["gemini-3-flash-preview", "y"]);
+  assert.deepEqual(custom.classify, ["x-lite", "gemini-3-flash-preview", "y"]);
 });
 
 test("generateDigestData: 日次枠超過(429 PerDay)と404は即座に次のモデルへフォールバックする", async () => {

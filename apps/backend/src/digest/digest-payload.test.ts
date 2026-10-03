@@ -8,6 +8,7 @@ const sampleArticle: Article = {
   link: "https://example.com/a",
   guid: "https://example.com/a",
   feedName: "TestFeed",
+  genre: "テック",
   summary: "概要",
   pubDate: null,
 };
@@ -17,6 +18,7 @@ const otherArticle: Article = {
   link: "https://example.com/b",
   guid: "https://example.com/b",
   feedName: "TestFeed",
+  genre: "テック",
   summary: "概要2",
   pubDate: null,
 };
@@ -30,6 +32,7 @@ test("buildDigestPayload: digestがある場合はhasNewArticles: trueで構築�
       threeLines: ["1行目", "2行目", "3行目"],
       categories: [
         {
+          genre: "テック",
           category: "開発・プログラミング",
           picks: [{ article: sampleArticle, reason: "重要だから", summary: "要約文。" }],
           others: [{ article: otherArticle, gist: "一行あらすじ" }],

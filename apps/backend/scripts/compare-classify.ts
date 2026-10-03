@@ -6,7 +6,7 @@ import { fetchAllFeeds } from "../src/fetch/feed-fetcher.js";
 // テック記事の先頭100件のタイトルを2モデルで分類し、一致率と不一致を表示する(各モデル1リクエストを消費)。
 const SAMPLE_SIZE = 100;
 const BASELINE_MODEL = "gemini-3.6-flash";
-const CANDIDATE_MODEL = "gemini-2.5-flash-lite";
+const CANDIDATE_MODEL = "gemini-3.5-flash-lite";
 
 async function main(): Promise<void> {
   const apiKey = process.env["GEMINI_API_KEY"];

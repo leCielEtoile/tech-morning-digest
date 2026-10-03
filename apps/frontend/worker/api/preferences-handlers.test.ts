@@ -104,3 +104,19 @@ test("handlePutPreferences: ログイン済み・有効なbodyは200", async () 
   const response = await handlePutPreferences(request, db);
   assert.equal(response.status, 200);
 });
+
+test("handlePutPreferences: 論文ジャンルのカテゴリも受理する", async () => {
+  const future = new Date(Date.now() + 10_000).toISOString();
+  const db = fakeDb({ session: { id: "sess-1", user_id: "user-1", expires_at: future } });
+  const request = new Request("http://localhost/api/preferences", {
+    method: "PUT",
+    headers: { Cookie: "session_id=sess-1" },
+    body: JSON.stringify([
+      { category: "自然言語処理", enabled: true },
+      { category: "AI・機械学習", enabled: false },
+    ]),
+  });
+  const response = await handlePutPreferences(request, db);
+  assert.notEqual(response.status, 400);
+  assert.equal(response.status, 200);
+});

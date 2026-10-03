@@ -57,3 +57,16 @@ test("isDigestPayload: 旧スキーマ(categories[].articles形式)はfalseを�
 
   assert.equal(isDigestPayload(payload), false);
 });
+
+test("isDigestPayload: genreが無い旧形式も、有効なgenreもtrue。不正なgenreはfalse", () => {
+  const base = {
+    date: "2026-09-13",
+    generatedAt: "2026-09-13T23:35:00.000Z",
+    hasNewArticles: true,
+    threeLines: [],
+  };
+  const category = { category: "自然言語処理", picks: [], others: [] };
+  assert.equal(isDigestPayload({ ...base, categories: [category] }), true);
+  assert.equal(isDigestPayload({ ...base, categories: [{ ...category, genre: "論文" }] }), true);
+  assert.equal(isDigestPayload({ ...base, categories: [{ ...category, genre: "謎" }] }), false);
+});

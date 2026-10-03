@@ -1,4 +1,4 @@
-import type { Category } from "../config/feeds.js";
+import type { Category, Genre } from "../config/feeds.js";
 import type { GeminiDigestResult } from "../ai/gemini-client.js";
 
 export interface DigestArticleRef {
@@ -17,6 +17,7 @@ export interface DigestCategoryArticlePayload extends DigestArticleRef {
 }
 
 export interface DigestCategoryPayload {
+  genre: Genre;
   category: Category;
   picks: DigestCategoryPickPayload[];
   others: DigestCategoryArticlePayload[];
@@ -59,6 +60,7 @@ export function buildDigestPayload(params: {
     threeLines: digest?.threeLines ?? [],
     categories:
       digest?.categories.map((c) => ({
+        genre: c.genre,
         category: c.category,
         picks: c.picks.map((p) => ({ ...toArticleRef(p.article), reason: p.reason, summary: p.summary })),
         others: c.others.map((a) => ({ ...toArticleRef(a.article), gist: a.gist })),

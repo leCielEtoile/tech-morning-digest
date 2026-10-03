@@ -8,6 +8,7 @@ const sampleArticle: Article = {
   link: "https://example.com/a",
   guid: "https://example.com/a",
   feedName: "TestFeed",
+  genre: "テック",
   summary: "概要",
   pubDate: null,
 };
@@ -17,6 +18,7 @@ const otherArticle: Article = {
   link: "https://example.com/b",
   guid: "https://example.com/b",
   feedName: "TestFeed",
+  genre: "テック",
   summary: "概要2",
   pubDate: null,
 };
@@ -30,6 +32,7 @@ test("buildDigestPayload: digestがある場合はhasNewArticles: trueで構築�
       threeLines: ["1行目", "2行目", "3行目"],
       categories: [
         {
+          genre: "テック",
           category: "開発・プログラミング",
           picks: [{ article: sampleArticle, reason: "重要だから", summary: "要約文。" }],
           others: [{ article: otherArticle, gist: "一行あらすじ" }],
@@ -45,6 +48,7 @@ test("buildDigestPayload: digestがある場合はhasNewArticles: trueで構築�
     threeLines: ["1行目", "2行目", "3行目"],
     categories: [
       {
+        genre: "テック",
         category: "開発・プログラミング",
         picks: [
           {
@@ -68,4 +72,25 @@ test("buildDigestPayload: digestがnullの場合はhasNewArticles: falseかつ�
   assert.equal(payload.hasNewArticles, false);
   assert.deepEqual(payload.threeLines, []);
   assert.deepEqual(payload.categories, []);
+});
+
+test("buildDigestPayload: カテゴリのgenreがペイロードに出力される", () => {
+  const article = {
+    title: "論文A",
+    link: "https://arxiv.org/abs/1",
+    guid: "1",
+    feedName: "arXiv",
+    genre: "論文" as const,
+    summary: "s",
+    pubDate: null,
+  };
+  const payload = buildDigestPayload({
+    dateLabel: "2026-10-06",
+    now: new Date("2026-10-06T00:00:00Z"),
+    digest: {
+      threeLines: [],
+      categories: [{ genre: "論文", category: "自然言語処理", picks: [], others: [{ article, gist: "g" }] }],
+    },
+  });
+  assert.equal(payload.categories[0]?.genre, "論文");
 });

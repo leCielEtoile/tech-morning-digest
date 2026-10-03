@@ -278,6 +278,33 @@ a:focus-visible {
   color: var(--signal);
 }
 
+.genre-tabs {
+	display: flex;
+	gap: 0.5rem;
+	margin: 1rem 0 0.5rem;
+}
+
+.genre-tabs__item {
+	font: inherit;
+	padding: 0.35rem 0.9rem;
+	border: 1px solid currentColor;
+	border-radius: 999px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	opacity: 0.65;
+}
+
+.genre-tabs__item.is-active {
+	opacity: 1;
+	font-weight: 700;
+}
+
+.others-details > summary {
+	cursor: pointer;
+	margin: 0.75rem 0 0.5rem;
+}
+
 /* カテゴリタブ: 横スクロールのページ内リンク。JS有効時はタブ切り替えの見た目になる */
 .category-tabs {
   position: sticky;

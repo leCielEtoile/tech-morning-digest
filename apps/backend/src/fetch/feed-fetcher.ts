@@ -34,7 +34,7 @@ export async function fetchFeed(feed: FeedDefinition): Promise<FeedFetchResult> 
   try {
     const xml = await fetchFeedXml(feed);
     const articles = await parseFeedXml(xml, feed);
-    return { feed, articles: articles.slice(0, MAX_ITEMS_PER_FEED), error: null };
+    return { feed, articles: articles.slice(0, feed.maxItems ?? MAX_ITEMS_PER_FEED), error: null };
   } catch (error) {
     return {
       feed,

@@ -119,7 +119,7 @@ app.put(
   describeRoute({
     tags: ["Preferences"],
     summary: "興味カテゴリ設定を置き換える",
-    description: "既存の設定を全削除してから渡された内容で置き換える。categoryは既定の6カテゴリのホワイトリストに含まれる文字列のみ許可される。",
+    description: "既存の設定を全削除してから渡された内容で置き換える。categoryは既定のカテゴリ(テック6・論文4)のホワイトリストに含まれる文字列のみ許可される。",
     security: [{ cookieAuth: [] }],
     requestBody: {
       content: {

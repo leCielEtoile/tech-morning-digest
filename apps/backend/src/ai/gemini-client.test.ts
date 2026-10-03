@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Article } from "../types.js";
-import { buildDigestResult } from "./gemini-client.js";
+import { buildDigestResult, generateDigestData } from "./gemini-client.js";
 
 function makeArticle(title: string): Article {
   return {
@@ -116,4 +116,64 @@ test("buildDigestResult: 同一articleIdが複数のcategoryPicksに現れても
       },
     ],
   });
+});
+
+function geminiResponse(body: unknown): Response {
+  return new Response(
+    JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(body) }] } }] }),
+    { status: 200 },
+  );
+}
+
+test("generateDigestData: 分類→カテゴリ別→3行の順に呼び、失敗カテゴリは未処理として返す", async () => {
+  const articles = [makeArticle("A"), makeArticle("B"), makeArticle("C")];
+  const original = globalThis.fetch;
+  const prompts: string[] = [];
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    const prompt = JSON.parse(String(init?.body)).contents[0].parts[0].text as string;
+    prompts.push(prompt);
+    if (prompt.startsWith("以下は記事のid・タイトル一覧")) {
+      return geminiResponse({
+        classifications: [
+          { articleId: 0, category: "開発・プログラミング" },
+          { articleId: 1, category: "開発・プログラミング" },
+          { articleId: 2, category: "クラウド・インフラ" },
+        ],
+      });
+    }
+    if (prompt.includes("カテゴリ「クラウド・インフラ」")) return new Response("", { status: 400 });
+    if (prompt.includes("カテゴリ「開発・プログラミング」")) {
+      return geminiResponse({
+        picks: [{ articleId: 0, reason: "理由", summary: "要約" }],
+        gists: [{ articleId: 0, gist: "Aのあらすじ" }, { articleId: 1, gist: "Bのあらすじ" }],
+      });
+    }
+    return geminiResponse({ threeLines: ["1", "2", "3"] });
+  }) as typeof fetch;
+
+  try {
+    const { digest, processedArticles } = await generateDigestData(articles, "key", { requestIntervalMs: 0 });
+    assert.deepEqual(digest.threeLines, ["1", "2", "3"]);
+    assert.equal(digest.categories.length, 1);
+    assert.deepEqual(processedArticles, [articles[0], articles[1]]);
+    assert.ok(!prompts[0]?.includes("https://example.com"), "分類プロンプトにURLを含めない");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("generateDigestData: 全カテゴリ失敗なら例外を投げる", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    const prompt = JSON.parse(String(init?.body)).contents[0].parts[0].text as string;
+    if (prompt.startsWith("以下は記事のid・タイトル一覧")) {
+      return geminiResponse({ classifications: [{ articleId: 0, category: "開発・プログラミング" }] });
+    }
+    return new Response("", { status: 400 });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(generateDigestData([makeArticle("A")], "key", { requestIntervalMs: 0 }));
+  } finally {
+    globalThis.fetch = original;
+  }
 });

@@ -16,42 +16,12 @@ const GEMINI_RETRY_OPTIONS = {
   respectRetryAfter: true,
 };
 
-/** Geminiへ渡す記事データ。linkはGeminiに書かせない(こちらのArticleデータから復元するため不要)。 */
-interface PromptArticle {
-  id: number;
-  title: string;
-  feedName: string;
-  summary: string;
-}
-
-/**
- * spec.md 5章のプロンプトテンプレートに従い、新着記事一覧からGemini向けプロンプトを構築する。
- * URLはGeminiに一切書かせない設計(2026-08-05変更): カテゴリ別セクションはこちらのコードが
- * 既に持っているデータ(タイトル・リンク・出典)をそのまま使うため、Geminiには生成・選定に
- * 必要な最小限のデータ(id・タイトル・出典・概要)のみを渡し、記事本体の再送信をさせない。
- * これにより出力トークンを大幅に削減し、URLの書き間違い/言い換えリスクも排除する。
- */
-export function buildPrompt(articles: Article[]): string {
-  const promptArticles: PromptArticle[] = articles.map((article, id) => ({
-    id,
-    title: article.title,
-    feedName: article.feedName,
-    summary: article.summary,
-  }));
-
-  return `以下は本日取得した新着記事の一覧です(id・タイトル・フィード名・概要)。
-
-# タスク
-1. 全体を俯瞰した「今日の3行」を3行で作成してください
-2. 全ての記事について、最も適切なカテゴリを1つ選んでください(articleIdごとにcategoryを指定。下記カテゴリ一覧から選ぶこと。記事の実際の内容で判断し、出典元の傾向だけで機械的に決めないこと)。あわせて、記事ごとに内容を一行(30〜50文字程度)で要約したあらすじも添えてください
-3. カテゴリごとに特に重要と思われる記事を1〜3件選び(articleIdとcategoryで指定。該当記事がなければ0件でも構いません)、それぞれ選定理由を1文と、内容の要約を3〜6文程度で添えてください
-
-# カテゴリ一覧
-${CATEGORY_ORDER.join(" / ")}
-
-# 記事データ
-${JSON.stringify(promptArticles, null, 2)}`;
-}
+/** 分類リクエスト1回あたりの記事数。巨大プロンプトによる429/503を避けるため分割する */
+export const CLASSIFY_CHUNK_SIZE = 100;
+/** カテゴリ別リクエストに渡す概要の最大文字数 */
+const MAX_SUMMARY_CHARS = 300;
+/** 連続するGemini呼び出しの間隔(RPM制限対策) */
+const DEFAULT_REQUEST_INTERVAL_MS = 4000;
 
 interface RawCategoryPick {
   articleId: number;
@@ -72,35 +42,101 @@ interface RawGeminiDigest {
   categorizedArticles: RawCategorizedArticle[];
 }
 
-function isRawGeminiDigest(value: unknown): value is RawGeminiDigest {
-  if (typeof value !== "object" || value === null) return false;
-  const record = value as Record<string, unknown>;
+interface RawClassification {
+  classifications: { articleId: number; category: string }[];
+}
+
+interface RawCategoryDetail {
+  picks: { articleId: number; reason: string; summary: string }[];
+  gists: { articleId: number; gist: string }[];
+}
+
+interface RawThreeLines {
+  threeLines: string[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isArrayOf<T>(value: unknown, guard: (item: Record<string, unknown>) => boolean): value is T[] {
+  return Array.isArray(value) && value.every((item) => isRecord(item) && guard(item));
+}
+
+const isNum = (v: unknown): v is number => typeof v === "number";
+const isStr = (v: unknown): v is string => typeof v === "string";
+
+function isRawClassification(value: unknown): value is RawClassification {
   return (
-    Array.isArray(record["threeLines"]) &&
-    record["threeLines"].every((line) => typeof line === "string") &&
-    Array.isArray(record["categoryPicks"]) &&
-    record["categoryPicks"].every(
-      (p) =>
-        typeof p === "object" &&
-        p !== null &&
-        typeof (p as Record<string, unknown>)["articleId"] === "number" &&
-        typeof (p as Record<string, unknown>)["category"] === "string" &&
-        typeof (p as Record<string, unknown>)["reason"] === "string" &&
-        typeof (p as Record<string, unknown>)["summary"] === "string",
-    ) &&
-    Array.isArray(record["categorizedArticles"]) &&
-    record["categorizedArticles"].every(
-      (c) =>
-        typeof c === "object" &&
-        c !== null &&
-        typeof (c as Record<string, unknown>)["articleId"] === "number" &&
-        typeof (c as Record<string, unknown>)["category"] === "string" &&
-        typeof (c as Record<string, unknown>)["gist"] === "string",
-    )
+    isRecord(value) &&
+    isArrayOf(value["classifications"], (c) => isNum(c["articleId"]) && isStr(c["category"]))
   );
 }
 
-const RESPONSE_SCHEMA = {
+function isRawCategoryDetail(value: unknown): value is RawCategoryDetail {
+  return (
+    isRecord(value) &&
+    isArrayOf(value["picks"], (p) => isNum(p["articleId"]) && isStr(p["reason"]) && isStr(p["summary"])) &&
+    isArrayOf(value["gists"], (g) => isNum(g["articleId"]) && isStr(g["gist"]))
+  );
+}
+
+function isRawThreeLines(value: unknown): value is RawThreeLines {
+  return isRecord(value) && Array.isArray(value["threeLines"]) && value["threeLines"].every(isStr);
+}
+
+const CLASSIFY_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    classifications: {
+      type: "ARRAY",
+      description: "入力された記事全件について、最も適切なカテゴリを1つ割り当てる。",
+      items: {
+        type: "OBJECT",
+        properties: {
+          articleId: { type: "INTEGER" },
+          category: { type: "STRING", enum: CATEGORY_ORDER },
+        },
+        required: ["articleId", "category"],
+      },
+    },
+  },
+  required: ["classifications"],
+};
+
+const CATEGORY_DETAIL_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    picks: {
+      type: "ARRAY",
+      description: "特に重要な記事1〜3件(該当記事がなければ0件)。",
+      items: {
+        type: "OBJECT",
+        properties: {
+          articleId: { type: "INTEGER" },
+          reason: { type: "STRING", description: "選定理由を1文で。" },
+          summary: { type: "STRING", description: "記事内容の要約。3〜6文程度。" },
+        },
+        required: ["articleId", "reason", "summary"],
+      },
+    },
+    gists: {
+      type: "ARRAY",
+      description: "入力された記事全件の一行あらすじ。",
+      items: {
+        type: "OBJECT",
+        properties: {
+          articleId: { type: "INTEGER" },
+          gist: { type: "STRING", description: "記事の内容を一行(30〜50文字程度)で要約したあらすじ。" },
+        },
+        required: ["articleId", "gist"],
+      },
+    },
+  },
+  required: ["picks", "gists"],
+};
+
+const THREE_LINES_SCHEMA = {
   type: "OBJECT",
   properties: {
     threeLines: {
@@ -108,36 +144,50 @@ const RESPONSE_SCHEMA = {
       items: { type: "STRING" },
       description: "全体の潮流を俯瞰した3行の要約。必ず3件。",
     },
-    categoryPicks: {
-      type: "ARRAY",
-      description: "カテゴリごとに特に重要な記事1〜3件(該当記事がなければ0件)。",
-      items: {
-        type: "OBJECT",
-        properties: {
-          articleId: { type: "INTEGER" },
-          category: { type: "STRING", enum: CATEGORY_ORDER },
-          reason: { type: "STRING", description: "選定理由を1文で。" },
-          summary: { type: "STRING", description: "記事内容の要約。3〜6文程度。" },
-        },
-        required: ["articleId", "category", "reason", "summary"],
-      },
-    },
-    categorizedArticles: {
-      type: "ARRAY",
-      description: "入力された記事全件について、それぞれ最も適切なカテゴリと一行あらすじを割り当てる。",
-      items: {
-        type: "OBJECT",
-        properties: {
-          articleId: { type: "INTEGER" },
-          category: { type: "STRING", enum: CATEGORY_ORDER },
-          gist: { type: "STRING", description: "記事の内容を一行(30〜50文字程度)で要約したあらすじ。" },
-        },
-        required: ["articleId", "category", "gist"],
-      },
-    },
   },
-  required: ["threeLines", "categoryPicks", "categorizedArticles"],
+  required: ["threeLines"],
 };
+
+/**
+ * 分類用プロンプト。URL・概要は渡さず(id・タイトルのみ)入力トークンを最小化する。
+ * リンクはこちらがidから復元するためGeminiに扱わせない。
+ */
+export function buildClassifyPrompt(entries: { id: number; title: string }[]): string {
+  return `以下は記事のid・タイトル一覧です。全ての記事について、最も適切なカテゴリを1つ選んでください(articleIdごとにcategoryを指定)。記事の実際の内容で判断し、出典元の傾向だけで機械的に決めないこと。
+
+# カテゴリ一覧
+${CATEGORY_ORDER.join(" / ")}
+
+# 記事データ
+${JSON.stringify(entries)}`;
+}
+
+interface CategoryPromptArticle {
+  id: number;
+  title: string;
+  feedName: string;
+  summary: string;
+}
+
+/** カテゴリ別プロンプト。1カテゴリ分の記事だけを渡し、picksと全件のあらすじを生成させる */
+export function buildCategoryPrompt(category: Category, articles: CategoryPromptArticle[]): string {
+  return `以下は本日取得した新着記事のうち、カテゴリ「${category}」に分類された記事の一覧です(id・タイトル・フィード名・概要)。
+
+# タスク
+1. 特に重要と思われる記事を1〜3件選び(articleIdで指定。該当記事がなければ0件でも構いません)、それぞれ選定理由を1文と、内容の要約を3〜6文程度で添えてください
+2. 全ての記事について、内容を一行(30〜50文字程度)で要約したあらすじを添えてください(articleIdごとにgistを指定)
+
+# 記事データ
+${JSON.stringify(articles, null, 2)}`;
+}
+
+/** 今日の3行用プロンプト。各カテゴリで選ばれた記事のタイトルと選定理由だけを渡す */
+export function buildThreeLinesPrompt(highlights: { category: Category; title: string; reason: string }[]): string {
+  return `以下は本日のカテゴリ別の注目記事です。全体を俯瞰した「今日の3行」を3行で作成してください。
+
+# 注目記事
+${JSON.stringify(highlights, null, 2)}`;
+}
 
 export interface DigestCategoryPick {
   article: Article;
@@ -203,16 +253,30 @@ export function buildDigestResult(raw: RawGeminiDigest, idToArticle: Map<number,
   return { threeLines: raw.threeLines, categories };
 }
 
-/**
- * Gemini APIを呼び出し、構造化されたダイジェストデータを返す。
- * 全リトライ失敗時は例外をthrowする。呼び出し元(index.ts)はこれを捕捉し、
- * 「前日ページ維持・state未更新」のフローに分岐させること(spec.md 7章)。
- */
-export async function generateDigestData(articles: Article[], apiKey: string): Promise<GeminiDigestResult> {
-  const idToArticle = new Map<number, Article>(articles.map((article, id) => [id, article]));
-  const prompt = buildPrompt(articles);
+const MAX_PICKS_PER_CATEGORY = 3;
 
-  const raw = await withRetry(async () => {
+export interface GenerateDigestOptions {
+  /** 連続するGemini呼び出しの間隔(ms)。テストでは0を指定する */
+  requestIntervalMs?: number;
+}
+
+export interface GenerateDigestOutcome {
+  digest: GeminiDigestResult;
+  /** ダイジェストに実際に掲載した記事。呼び出し元はこれだけを既読化する(失敗カテゴリ分は翌日に持ち越す) */
+  processedArticles: Article[];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callGemini<T>(
+  apiKey: string,
+  prompt: string,
+  schema: unknown,
+  guard: (value: unknown) => value is T,
+): Promise<T> {
+  return withRetry(async () => {
     const response = await fetch(GEMINI_ENDPOINT, {
       method: "POST",
       headers: {
@@ -223,7 +287,7 @@ export async function generateDigestData(articles: Article[], apiKey: string): P
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
+          responseSchema: schema,
         },
       }),
     });
@@ -235,11 +299,96 @@ export async function generateDigestData(articles: Article[], apiKey: string): P
     }
 
     const parsed: unknown = JSON.parse(text);
-    if (!isRawGeminiDigest(parsed)) {
+    if (!guard(parsed)) {
       throw new Error("Gemini APIのレスポンスが期待するスキーマと一致しません");
     }
     return parsed;
   }, GEMINI_RETRY_OPTIONS);
+}
 
-  return buildDigestResult(raw, idToArticle);
+/**
+ * 3段階に分けてダイジェストを生成する(巨大な単一リクエストによる429/503を避けるため)。
+ *   1. タイトルのみをCLASSIFY_CHUNK_SIZE件ずつ送ってカテゴリ分類(失敗時は例外)
+ *   2. カテゴリごとに picks+あらすじを生成(失敗カテゴリはスキップし、その記事は未処理として返す)
+ *   3. 各カテゴリのpicksから今日の3行を生成(失敗時は例外)
+ * 例外時、呼び出し元(index.ts)は「前日ページ維持・state未更新」のフローに分岐させること(spec.md 7章)。
+ */
+export async function generateDigestData(
+  articles: Article[],
+  apiKey: string,
+  options: GenerateDigestOptions = {},
+): Promise<GenerateDigestOutcome> {
+  const intervalMs = options.requestIntervalMs ?? DEFAULT_REQUEST_INTERVAL_MS;
+  const idToArticle = new Map<number, Article>(articles.map((article, id) => [id, article]));
+  let isFirstCall = true;
+  const paced = async <T>(call: () => Promise<T>): Promise<T> => {
+    if (!isFirstCall) await sleep(intervalMs);
+    isFirstCall = false;
+    return call();
+  };
+
+  const categoryById = new Map<number, Category>();
+  const entries = articles.map((article, id) => ({ id, title: article.title }));
+  for (let i = 0; i < entries.length; i += CLASSIFY_CHUNK_SIZE) {
+    const chunk = entries.slice(i, i + CLASSIFY_CHUNK_SIZE);
+    const result = await paced(() =>
+      callGemini(apiKey, buildClassifyPrompt(chunk), CLASSIFY_SCHEMA, isRawClassification),
+    );
+    for (const { articleId, category } of result.classifications) {
+      if (idToArticle.has(articleId) && CATEGORY_ORDER.includes(category as Category)) {
+        categoryById.set(articleId, category as Category);
+      }
+    }
+  }
+
+  const raw: RawGeminiDigest = { threeLines: [], categoryPicks: [], categorizedArticles: [] };
+  for (const category of CATEGORY_ORDER) {
+    const ids = [...categoryById].filter(([, c]) => c === category).map(([id]) => id);
+    if (ids.length === 0) continue;
+    const promptArticles: CategoryPromptArticle[] = ids.map((id) => {
+      const article = idToArticle.get(id) as Article;
+      return { id, title: article.title, feedName: article.feedName, summary: article.summary.slice(0, MAX_SUMMARY_CHARS) };
+    });
+    try {
+      const detail = await paced(() =>
+        callGemini(apiKey, buildCategoryPrompt(category, promptArticles), CATEGORY_DETAIL_SCHEMA, isRawCategoryDetail),
+      );
+      const idSet = new Set(ids);
+      for (const pick of detail.picks.filter((p) => idSet.has(p.articleId)).slice(0, MAX_PICKS_PER_CATEGORY)) {
+        raw.categoryPicks.push({ ...pick, category });
+      }
+      for (const g of detail.gists.filter((g) => idSet.has(g.articleId))) {
+        raw.categorizedArticles.push({ ...g, category });
+      }
+    } catch (error) {
+      console.warn(`[digest] カテゴリ「${category}」の生成に失敗。今回は掲載せず翌日に持ち越します。`, error);
+    }
+  }
+
+  if (raw.categorizedArticles.length === 0) {
+    throw new Error("全カテゴリのダイジェスト生成に失敗しました");
+  }
+
+  const highlights = raw.categoryPicks.flatMap((p) => {
+    const article = idToArticle.get(p.articleId);
+    return article ? [{ category: p.category as Category, title: article.title, reason: p.reason }] : [];
+  });
+  const gistTitles = raw.categorizedArticles
+    .slice(0, 10)
+    .flatMap((g) => {
+      const article = idToArticle.get(g.articleId);
+      return article ? [{ category: g.category as Category, title: article.title, reason: g.gist }] : [];
+    });
+  const threeLinesInput = highlights.length > 0 ? highlights : gistTitles;
+  const threeLines = await paced(() =>
+    callGemini(apiKey, buildThreeLinesPrompt(threeLinesInput), THREE_LINES_SCHEMA, isRawThreeLines),
+  );
+  raw.threeLines = threeLines.threeLines;
+
+  const digest = buildDigestResult(raw, idToArticle);
+  const processedArticles = digest.categories.flatMap((c) => [
+    ...c.picks.map((p) => p.article),
+    ...c.others.map((o) => o.article),
+  ]);
+  return { digest, processedArticles };
 }

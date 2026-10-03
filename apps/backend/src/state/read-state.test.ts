@@ -4,6 +4,9 @@ import type { R2Config } from "../publish/r2-client.js";
 import {
   computeGuidHash,
   filterNewArticles,
+  filterPublishedSinceLastRun,
+  lastRunAtMs,
+  PUBLISH_WINDOW_MARGIN_MS,
   loadReadState,
   markAsRead,
   pruneReadState,
@@ -135,4 +138,35 @@ test("saveReadState: state/read-guids.json へ整形済みJSONをPUTする", asy
   } finally {
     restore();
   }
+});
+
+test("lastRunAtMs: stateの最新の既読日時を返し、空・不正のみならnull", () => {
+  assert.equal(lastRunAtMs({}), null);
+  assert.equal(lastRunAtMs({ a: "invalid" }), null);
+  assert.equal(
+    lastRunAtMs({ a: "2026-10-01T00:00:00.000Z", b: "2026-10-02T00:00:00.000Z" }),
+    Date.parse("2026-10-02T00:00:00.000Z"),
+  );
+});
+
+test("filterPublishedSinceLastRun: 前回実行−余裕より古い記事を除外し、pubDate無しは残す", () => {
+  const last = Date.parse("2026-10-02T23:30:00.000Z");
+  const state = { h: new Date(last).toISOString() };
+  const edge = last - PUBLISH_WINDOW_MARGIN_MS;
+  const articles = [
+    { id: "new", pubDate: new Date(last + 1000).toISOString() },
+    { id: "withinMargin", pubDate: new Date(edge + 1000).toISOString() },
+    { id: "atEdge", pubDate: new Date(edge).toISOString() },
+    { id: "old", pubDate: "2026-09-01T00:00:00.000Z" },
+    { id: "noDate", pubDate: null },
+  ];
+  assert.deepEqual(
+    filterPublishedSinceLastRun(articles, state).map((a) => a.id),
+    ["new", "withinMargin", "noDate"],
+  );
+});
+
+test("filterPublishedSinceLastRun: stateが空なら絞り込まない", () => {
+  const articles = [{ pubDate: "2020-01-01T00:00:00.000Z" }];
+  assert.deepEqual(filterPublishedSinceLastRun(articles, {}), articles);
 });

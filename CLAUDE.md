@@ -19,7 +19,7 @@ rss-summary/
 │   │   │   ├── config/feeds.ts     # RSSフィード定義・カテゴリ分類
 │   │   │   ├── fetch/               # フィード取得・パース(RSS1.0/2.0/Atom正規化)
 │   │   │   ├── state/read-state.ts # 既読GUID管理(R2オブジェクト `state/read-guids.json` の読み書き)
-│   │   │   ├── ai/gemini-client.ts # Geminiプロンプト構築・API呼び出し
+│   │   │   ├── ai/gemini-client.ts # Gemini 3段階生成(分類→カテゴリ別→3行)・API呼び出し
 │   │   │   ├── digest/digest-payload.ts # R2保存用JSONペイロード構築
 │   │   │   ├── publish/r2-client.ts # R2の署名付き読み書き(ダイジェスト・既読state)
 │   │   │   └── utils/retry.ts        # 共通リトライユーティリティ

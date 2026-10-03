@@ -20,8 +20,11 @@ const GEMINI_RETRY_OPTIONS = {
 export const CLASSIFY_CHUNK_SIZE = 100;
 /** カテゴリ別リクエストに渡す概要の最大文字数 */
 const MAX_SUMMARY_CHARS = 300;
-/** 連続するGemini呼び出しの間隔(RPM制限対策) */
-const DEFAULT_REQUEST_INTERVAL_MS = 4000;
+/**
+ * 連続するGemini呼び出しの間隔。無料枠は5 RPM(2026-10-03にAI Studioで確認)のため、
+ * 応答時間を含めても超えないよう12秒超を空ける。
+ */
+const DEFAULT_REQUEST_INTERVAL_MS = 13000;
 
 interface RawCategoryPick {
   articleId: number;
@@ -291,6 +294,11 @@ async function callGemini<T>(
         },
       }),
     });
+    if (!response.ok) {
+      // 429はRPM/TPM/RPDのどれに当たったかがbodyのQuotaFailure(quotaId)にしか出ないため残す
+      const body = await response.clone().text();
+      console.warn(`[digest] Gemini APIエラー HTTP ${response.status}: ${body.slice(0, 500)}`);
+    }
     const validated = assertOk(response);
     const data = (await validated.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;

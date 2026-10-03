@@ -5,7 +5,7 @@ import { fetchAllFeeds } from "../src/fetch/feed-fetcher.js";
 // 使い方: GEMINI_API_KEY を設定して `pnpm --filter @rss-summary/backend exec tsx scripts/compare-classify.ts`
 // テック記事の先頭100件のタイトルを2モデルで分類し、一致率と不一致を表示する(各モデル1リクエストを消費)。
 const SAMPLE_SIZE = 100;
-const BASELINE_MODEL = "gemini-3.5-flash";
+const BASELINE_MODEL = "gemini-3-flash-preview";
 const CANDIDATE_MODEL = "gemini-3.5-flash-lite";
 
 async function main(): Promise<void> {
